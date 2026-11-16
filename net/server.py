@@ -1,1 +1,9 @@
-""" Серверный файл """
+class Server:
+    def __init__(self):
+        ...
+    
+    def start(self):
+        ...
+    
+    def stop(self):
+        ...

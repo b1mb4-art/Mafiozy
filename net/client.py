@@ -1,0 +1,6 @@
+class Client:
+    def __init__(self, addr: tuple[str, int]):
+        ...
+    
+    def close(self):
+        ...

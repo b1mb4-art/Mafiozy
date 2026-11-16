@@ -1,6 +1,8 @@
 import arcade
 import arcade.gui as gui
 
+from net import Client
+
 
 class MainMenu(arcade.View):
     def __init__(self, window = None, background_color = None):
@@ -75,7 +77,12 @@ class MainMenu(arcade.View):
         print('Персонаж')
     
     def create_lobby_menu(self, event):
-        print('Создать лобби')
+        self.window.host_manager.start()
+        self.window.client = Client(("127.0.0.1", 12345))
+        
+        from .lobby_view import LobbyView
+        self.window.show_view(LobbyView(is_host=True))
     
     def connect_lobby_menu(self, event):
-        print('Присоедениться к лобби')
+        from .connect_view import ConnectLobby
+        self.window.show_view(ConnectLobby())

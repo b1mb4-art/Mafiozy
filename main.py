@@ -1,6 +1,7 @@
 import arcade
 
 from views import MainMenu
+from net import Server
 
 
 class Game(arcade.Window):
@@ -8,11 +9,22 @@ class Game(arcade.Window):
         super().__init__(width, height, title, fullscreen, center_window=True)
         arcade.enable_timings()
         
+        # Для сервера
+        self.client = None
+        self.host_manager = Server()
+        
         self.setup()
         
     def setup(self):
         main_menu = MainMenu()
         self.show_view(main_menu)
+    
+    def on_close(self):
+        # Гарантированно убиваем сервер, если игрок закрыл окно крестиком
+        if self.client:
+            self.client.close()
+        self.host_manager.stop()
+        super().on_close()
 
 
 if __name__ == "__main__":
