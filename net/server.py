@@ -6,6 +6,7 @@ import json
 
 # from config import *
 from protocol import PacketKey, RequestType
+from network_utils import receive_data, send_data
 
 class Server:
     def __init__(self, addr: tuple[str, int] = ('0.0.0.0', 12345), tickrate=30):
@@ -33,7 +34,7 @@ class Server:
         while not self.kill:
             try:
                 # Инфа от клиента
-                data, addr = self.get_data_from_client()
+                data, addr = receive_data(self.server_socket)
 
                 # Игнорируем пакет, если прислали не JSON-объект (словарь)
                 if not isinstance(data, dict):
@@ -88,23 +89,6 @@ class Server:
         finally:
             self.kill = True
             self.server_socket.close()
-    
-    def get_data_from_client(self) -> tuple[dict, tuple[str, int]]:
-        """ Функция получения пакетов от клиента """
-        raw_data, addr = self.server_socket.recvfrom(4096)
-        data = json.loads(raw_data.decode('utf-8'))
-        
-        return (data, addr)
-    
-    def send_data_to_client(self, addr: tuple[str, int], data: dict) -> None:
-        """ Отправляет клиенту информацию с сервера """
-        try:
-            self.server_socket.sendto(
-                json.dumps(data).encode("utf-8"),
-                addr
-            )
-        except OSError:
-            ...
 
     def add_client(self, addr: tuple[str, int]):
         """ Добавляет нового клиента в список """
@@ -130,7 +114,8 @@ class Server:
             print(f"Добавлен клиент с ID:{self.next_id}, IP:{addr}")
             self.next_id += 1
 
-        self.send_data_to_client(
+        send_data(
+            self.server_socket,
             addr,
             reply
         )
