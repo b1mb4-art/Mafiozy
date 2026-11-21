@@ -14,5 +14,5 @@ class PacketKey:
     ACTION = 'action'
     PLAYERS = 'players'
     TICK = 'tick'
-    LASTSEEN = 'last_seen'
+    LAST_SEEN = 'last_seen'
     MESSAGE = 'message'
