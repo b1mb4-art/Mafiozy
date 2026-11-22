@@ -5,16 +5,20 @@ import threading
 import json
 
 # from config import *
-from net.protocol import PacketKey, RequestType
-from net.network_utils import receive_data, send_data
+from net.protocol import PacketKey, RequestType, MatchState
+from utils.network_utils import receive_data, send_data
 
 
 class Client:
     def __init__(self):
+        self.host = False
         self.server_addr = None
         self.thread = None
         self.kill = False
+        self.last_tick = -1
         self.lock = threading.Lock()
+
+        self.match_state = MatchState.LOBBY
 
         self.player_id = None
         self.all_players = dict()
@@ -38,6 +42,18 @@ class Client:
                 
                 if req == RequestType.MESSAGE:
                     print(data.get(PacketKey.MESSAGE))
+
+                if req == RequestType.INFO:
+                    tick = data.get(PacketKey.TICK, 0)
+                    if tick > self.last_tick:
+                        self.last_tick = tick
+                        raw_players = data.get(PacketKey.PLAYERS, {})
+                        with self.lock:
+                            self.match_state = data.get(PacketKey.STATE, self.match_state)
+                            # Переводим строковые ключи ID обратно в целые числа (int)
+                            self.all_players = {
+                                int(pid): info for pid, info in raw_players.items()
+                            }
                 
             except (json.JSONDecodeError, UnicodeDecodeError):
                 continue
@@ -89,7 +105,8 @@ class Client:
     def connect(self, addr) -> bool:
         
         packet = {
-            PacketKey.REQUEST: RequestType.CONNECT
+            PacketKey.REQUEST: RequestType.CONNECT,
+            PacketKey.HOST: self.host
         }
         
         for attempt in range(1, 11):
@@ -122,7 +139,6 @@ class Client:
         
         return False
 
-
     def disconnect(self):
         if self.server_addr:
             try:
@@ -131,9 +147,30 @@ class Client:
                 })
             except OSError:
                 pass
+            print("Отключился от сервера")
+    
+    def start_game(self):
+        """ Отправляет запрос начать игру """
+        if self.host:
+            packet = {
+                PacketKey.REQUEST: RequestType.START_GAME
+            }
+            send_data(self.server_socket, self.server_addr, packet)
+        else:
+            print("Вы не хост лобби")
+    
+    def ready(self, is_ready: bool):
+        """ Отправляет информацию готовности к матчу """
+        packet = {
+            PacketKey.REQUEST: RequestType.READY,
+            PacketKey.READY: is_ready
+        }
+        send_data(self.server_socket, self.server_addr, packet)
 
-    def add_player(self, id: int):
-        ...
+    def get_players_info(self) -> tuple[dict[int, dict], str]:
+        """Возвращает (словарь_игроков, текущее_состояние_матча)."""
+        with self.lock:
+            return self.all_players.copy(), self.match_state
 
 if __name__ == '__main__':
     client = Client()

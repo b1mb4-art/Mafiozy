@@ -5,13 +5,16 @@ import threading
 import json
 
 # from config import *
-from net.protocol import PacketKey, RequestType
-from net.network_utils import receive_data, send_data
+from net.protocol import PacketKey, RequestType, MatchState
+from utils import receive_data, send_data
 
 class Server:
     def __init__(self, addr: tuple[str, int] = ('0.0.0.0', 12345), tickrate=30):
         self.host, self.port = addr
         self.kill = False
+        
+        self.host_id = -1
+        self.state = MatchState.LOBBY
         
         # Тикрейт
         self.tickrate = tickrate
@@ -45,16 +48,25 @@ class Server:
                 # Обработка запроса
                 with self.lock:
                     if req == RequestType.CONNECT:
-                        self.add_client(addr)
-                    elif req == RequestType.DISCONNECT:
-                        self.remove_client(addr)
-                    elif req == RequestType.MESSAGE:
-                        print(f"Клиент (ID: {self.clients[addr].get(PacketKey.ID)}) отправил сообщение: {data.get(PacketKey.MESSAGE)}")
+                        self.add_client(addr, data.get(PacketKey.HOST))
                     
+                    # Обновление последнего контакта
                     if addr not in self.clients:
                         continue
                     else:
                         self.clients[addr][PacketKey.LAST_SEEN] = time.time()
+
+                    if req == RequestType.DISCONNECT:
+                        self.remove_client(addr)
+
+                    if req == RequestType.MESSAGE:
+                        ...
+                    
+                    if req == RequestType.READY:
+                        self.player_ready(addr, data.get(PacketKey.READY))
+                    
+                    if req == RequestType.START_GAME:
+                        self.start_match(addr)
                 
             except (json.JSONDecodeError, UnicodeDecodeError):
                 continue
@@ -78,8 +90,31 @@ class Server:
                         if now_wall - last_seen > self.client_timeout:
                             self.remove_client(addr)
                             
-                    self.on_update(self.tickrate_duration) # Обновление состояния сервера
+                    # Сбор инфы
+                    players_data = {}
                     
+                    for client in self.clients.values():
+                        pid = str(client[PacketKey.ID])
+                        players_data[pid] = {
+                            PacketKey.READY: client.get(PacketKey.READY),
+                            PacketKey.HOST: client.get(PacketKey.HOST)
+                        }
+                    
+                    packet = {
+                        PacketKey.REQUEST: RequestType.INFO,
+                        PacketKey.TICK: self.current_tick,
+                        PacketKey.STATE: self.state,
+                        PacketKey.PLAYERS: players_data
+                    }
+                    
+                    for addr in self.clients:
+                        send_data(self.server_socket, addr, packet)
+                        
+                        
+                    # Обновление игрового цикла
+                    self.on_update(self.tickrate_duration) # Обновление состояния сервера
+                
+                # Работа с тикрейтом
                 next_tick_time += self.tickrate_duration
                 self.current_tick += 1
                 sleep_time = next_tick_time - time.perf_counter()
@@ -91,7 +126,7 @@ class Server:
 
         except KeyboardInterrupt:
             print("\n Остановка сервера...")
-            self.stop()
+            self.close()
         finally:
             self.kill = True
             self.server_socket.close()
@@ -105,7 +140,7 @@ class Server:
         self.thread_send.start()
         print(f"UDP сервер запущен на {self.host}:{self.port} ({self.tickrate} TPS)")
 
-    def add_client(self, addr: tuple[str, int]):
+    def add_client(self, addr: tuple[str, int], is_host: bool=False):
         """ Добавляет нового клиента в список """
         
         if addr in self.clients:
@@ -118,14 +153,22 @@ class Server:
         else:
             # Добавление клиента на сервер
             self.clients[addr] = {
-                PacketKey.ID: self.next_id,
-                PacketKey.LAST_SEEN: time.time()
+                PacketKey.ID: self.next_id,  # ID игрока
+                PacketKey.HOST: is_host,  # Является ли хоостом лобби
+                PacketKey.READY: False,
+                PacketKey.LAST_SEEN: time.time()  # Последний раз видели
             }
+            # Ответ клиенту
             reply = {
                 PacketKey.REQUEST: RequestType.CONNECT,
                 PacketKey.ID: self.next_id,
                 PacketKey.MESSAGE: f"Добро пожаловать на сервер твой ID:{self.next_id}"
             }
+            
+            # (На всякий) Записываем ID хоста отдельно
+            if is_host:
+                self.host_id = self.next_id
+
             print(f"Добавлен клиент с ID:{self.next_id}, IP:{addr}")
             self.next_id += 1
 
@@ -137,13 +180,43 @@ class Server:
     
     def remove_client(self, addr: tuple[str, int]):
         """ Убирает клиента из списка """
-        removed = self.clients.pop(addr)
+        removed = self.clients.pop(addr, None)
         if removed:
             print(f"Клиент ID:{removed[PacketKey.ID]} отключился (IP:{addr})")
     
-    def stop(self):
+    def close(self):
         self.kill = True
         self.server_socket.close()
+        print("Сервер закрыт")
+      
+    def player_ready(self, addr: tuple[str, int],  ready: bool):
+        if self.state == MatchState.LOBBY:
+            self.clients[addr][PacketKey.READY] = bool(ready)
+            print(f"Клиент ID:{self.clients[addr].get(PacketKey.ID)} изменил готовность на {ready}")
+    
+    def start_match(self, addr: tuple[str, int]):
+        if self.clients[addr].get(PacketKey.HOST):
+            num_clients = len(list(self.clients.keys()))
+            num_ready = 0
+            
+            # Количество готовых игроков
+            for client in self.clients.values():
+                if client.get(PacketKey.READY):
+                    num_ready += 1
+            
+            if num_ready == num_clients:
+                self.state = MatchState.PLAYING
+                print("Матч запущен")
+            else:
+                send_data(
+                    self.server_socket,
+                    addr,
+                    {
+                        PacketKey.REQUEST: RequestType.MESSAGE,
+                        PacketKey.MESSAGE: f"Не все игроки готовы ({num_ready}/{num_clients})"
+                    }
+                )
+                print(f"Не все игроки готовы ({num_ready}/{num_clients})")
         
     def on_update(self, delta_time):
         ...

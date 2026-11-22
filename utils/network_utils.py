@@ -1,17 +1,17 @@
 import socket
 import json
 
-def receive_data(socket: socket.socket) -> tuple[dict, tuple[str, int]]:
+def receive_data(sock: socket.socket) -> tuple[dict, tuple[str, int]]:
     """ Функция получения пакетов """
-    raw_data, addr = socket.recvfrom(4096)
+    raw_data, addr = sock.recvfrom(4096)
     data = json.loads(raw_data.decode('utf-8'))
     
     return (data, addr)
 
-def send_data(socket: socket.socket, addr: tuple[str, int], data: dict) -> None:
+def send_data(sock: socket.socket, addr: tuple[str, int], data: dict) -> None:
     """ Функция отправки пакетов """
     try:
-        socket.sendto(
+        sock.sendto(
             json.dumps(data).encode("utf-8"),
             addr
         )

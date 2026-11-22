@@ -1,6 +1,7 @@
 import arcade
 
 from views import MainMenu
+from utils import disconnect_lobby
 
 
 class Game(arcade.Window):
@@ -9,8 +10,10 @@ class Game(arcade.Window):
         arcade.enable_timings()
         
         # Для сервера
-        self.client = None
         self.host_manager = None
+        # Для клиента
+        self.client = None
+        self.game_view = None
         
         self.setup()
         
@@ -20,10 +23,7 @@ class Game(arcade.Window):
     
     def on_close(self):
         # Гарантированно убиваем сервер, если игрок закрыл окно крестиком
-        if self.client:
-            self.client.close()
-        if self.host_manager:
-            self.host_manager.stop()
+        disconnect_lobby(self)
         super().on_close()
 
 

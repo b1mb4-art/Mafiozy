@@ -1,3 +1,9 @@
+class MatchState:
+    """ Константы состояния матча """
+    LOBBY = 'lobby'
+    PLAYING = 'playing'
+    GAME_OVER = 'game_over'
+
 class RequestType:
     """ Константы для типа запроса """
     CONNECT = 'connect'
@@ -6,6 +12,8 @@ class RequestType:
     MOVE = 'move'
     INFO = 'info'
     MESSAGE = 'message'
+    START_GAME = 'start_game'
+    READY = 'ready'
 
 
 class PacketKey:
@@ -17,3 +25,7 @@ class PacketKey:
     TICK = 'tick'
     LAST_SEEN = 'last_seen'
     MESSAGE = 'message'
+    HOST = "host"
+    READY = 'ready'
+    STATE = 'state'
+    PLAYERS = 'players'

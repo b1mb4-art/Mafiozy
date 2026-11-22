@@ -2,6 +2,7 @@ import arcade
 import arcade.gui as gui
 
 from net import Client, Server
+from utils import disconnect_lobby
 
 
 class MainMenu(arcade.View):
@@ -80,6 +81,7 @@ class MainMenu(arcade.View):
         self.window.host_manager = Server()
         self.window.host_manager.start()
         self.window.client = Client()
+        self.window.client.host = True
         
         connected = self.window.client.connect(("127.0.0.1", 12345))
         
@@ -91,6 +93,7 @@ class MainMenu(arcade.View):
             self.window.show_view(LobbyView(is_host=True))
         else:
             print("Не удалось подключиться")
+            disconnect_lobby(self.window)
         
     
     def connect_lobby_menu(self, event):
