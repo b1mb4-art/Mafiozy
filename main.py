@@ -1,7 +1,6 @@
 import arcade
 
 from views import MainMenu
-from net import Server
 
 
 class Game(arcade.Window):
@@ -11,7 +10,7 @@ class Game(arcade.Window):
         
         # Для сервера
         self.client = None
-        self.host_manager = Server()
+        self.host_manager = None
         
         self.setup()
         
@@ -23,7 +22,8 @@ class Game(arcade.Window):
         # Гарантированно убиваем сервер, если игрок закрыл окно крестиком
         if self.client:
             self.client.close()
-        self.host_manager.stop()
+        if self.host_manager:
+            self.host_manager.stop()
         super().on_close()
 
 

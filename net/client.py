@@ -5,8 +5,8 @@ import threading
 import json
 
 # from config import *
-from protocol import PacketKey, RequestType
-from network_utils import receive_data, send_data
+from net.protocol import PacketKey, RequestType
+from net.network_utils import receive_data, send_data
 
 
 class Client:
@@ -74,11 +74,11 @@ class Client:
         """ Главный цикл клиента: """
         self.kill = False
         
-        self.thread_recieve = threading.Thread(target=self.receive_loop)
+        self.thread_recieve = threading.Thread(target=self.receive_loop, daemon=True)
         self.thread_recieve.start()
         print("Запущены циклы получения пакетов с сервера")
         
-        self.thread_send = threading.Thread(target=self.send_loop)
+        self.thread_send = threading.Thread(target=self.send_loop, daemon=True)
         self.thread_send.start()
     
     def close(self):

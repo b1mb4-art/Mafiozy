@@ -1,7 +1,7 @@
 import arcade
 import arcade.gui as gui
 
-from net import Client
+from net import Client, Server
 
 
 class MainMenu(arcade.View):
@@ -77,11 +77,21 @@ class MainMenu(arcade.View):
         print('Персонаж')
     
     def create_lobby_menu(self, event):
+        self.window.host_manager = Server()
         self.window.host_manager.start()
-        self.window.client = Client(("127.0.0.1", 12345))
+        self.window.client = Client()
         
-        from .lobby_view import LobbyView
-        self.window.show_view(LobbyView(is_host=True))
+        connected = self.window.client.connect(("127.0.0.1", 12345))
+        
+        if connected:
+            print("Подключился")
+            self.window.client.start()
+            
+            from .lobby_view import LobbyView
+            self.window.show_view(LobbyView(is_host=True))
+        else:
+            print("Не удалось подключиться")
+        
     
     def connect_lobby_menu(self, event):
         from .connect_view import ConnectLobby

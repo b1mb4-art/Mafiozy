@@ -66,3 +66,7 @@ class LobbyView(arcade.View):
             self.window.client = None
         if self.is_host and getattr(self.window, "host_manager", None):
             self.window.host_manager.stop()
+            self.window.host_manager = None
+        
+        from .main_menu import MainMenu
+        self.window.show_view(MainMenu())

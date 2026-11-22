@@ -5,8 +5,8 @@ import threading
 import json
 
 # from config import *
-from protocol import PacketKey, RequestType
-from network_utils import receive_data, send_data
+from net.protocol import PacketKey, RequestType
+from net.network_utils import receive_data, send_data
 
 class Server:
     def __init__(self, addr: tuple[str, int] = ('0.0.0.0', 12345), tickrate=30):
@@ -63,12 +63,7 @@ class Server:
             except OSError:
                 break
     
-    def start(self):
-        """Главный цикл сервера """
-
-        threading.Thread(target=self.receive_loop, daemon=True).start()
-        print(f"UDP сервер запущен на {self.host}:{self.port} ({self.tickrate} TPS)")
-        
+    def send_loop(self):
         # Засекаем высокоточное время для контроля стабильного тикрейта
         next_tick_time = time.perf_counter()
         
@@ -100,6 +95,15 @@ class Server:
         finally:
             self.kill = True
             self.server_socket.close()
+    
+    def start(self):
+        """Главный цикл сервера """
+
+        self.thread_receive = threading.Thread(target=self.receive_loop, daemon=True)
+        self.thread_receive.start()
+        self.thread_send = threading.Thread(target=self.send_loop, daemon=True)
+        self.thread_send.start()
+        print(f"UDP сервер запущен на {self.host}:{self.port} ({self.tickrate} TPS)")
 
     def add_client(self, addr: tuple[str, int]):
         """ Добавляет нового клиента в список """

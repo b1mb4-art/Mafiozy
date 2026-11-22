@@ -1,6 +1,8 @@
 import arcade
 import arcade.gui as gui
 
+from net import Client
+
 
 class ConnectLobby(arcade.View):
     """Экран ввода IP-адреса для подключения к существующему лобби."""
@@ -22,7 +24,7 @@ class ConnectLobby(arcade.View):
         self.ip_input = gui.UIInputText(
             width=260,
             height=40,
-            text="127.0.0.1",
+            text="127.0.0.1:12345",
             font_size=16,
         )
         self.status_label = gui.UILabel(
@@ -53,13 +55,22 @@ class ConnectLobby(arcade.View):
         self.manager.draw()
     
     def on_connect_click(self, event):
-        target_ip = self.ip_input.text.strip()
         try:
-            from net import Client
-            from .lobby_view import LobbyView
-            # Создать клиента
-            ...
-            self.window.show_view(LobbyView(is_host=False))
+            self.window.client = Client()
+            target_ip = self.ip_input.text.strip().split(":")
+            target_ip[1] = int(target_ip[1])
+            target_ip = tuple(target_ip)
+        
+            connected = self.window.client.connect(target_ip)
+                    
+            if connected:
+                print("Подключился")
+                self.window.client.start()
+                
+                from .lobby_view import LobbyView
+                self.window.show_view(LobbyView(is_host=False))
+            else:
+                self.status_label.text= "Не удалось подключиться"
         except Exception as e:
             self.status_label.text = f"Ошибка подключения: {e}"
     
