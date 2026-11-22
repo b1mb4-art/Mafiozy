@@ -5,6 +5,8 @@ class GameView(arcade.View):
     def __init__(self, window = None, background_color = None):
         super().__init__(window, background_color)
         
+        self.background_color = (55, 55, 55)
+        
         self.client = self.window.client
     
     def on_draw(self):

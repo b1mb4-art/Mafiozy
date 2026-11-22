@@ -48,11 +48,11 @@ class PauseView(arcade.View):
     
     def on_show_view(self):
         """Вызывается автоматически при открытии этого View."""
-        self.ui.enable()
+        self.manager.enable()
 
     def on_hide_view(self):
         """Вызывается автоматически при уходе с этого View."""
-        self.ui.disable()
+        self.manager.disable()
     
     def on_update(self, delta_time: float):
         # В мультиплеере продолжаем обновлять позиции других игроков на фоне
@@ -67,7 +67,7 @@ class PauseView(arcade.View):
             color=(0, 0, 0, 150)
         )
 
-        self.ui.draw()
+        self.manager.draw()
     
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
