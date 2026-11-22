@@ -46,6 +46,8 @@ class Server:
                 with self.lock:
                     if req == RequestType.CONNECT:
                         self.add_client(addr)
+                    elif req == RequestType.DISCONNECT:
+                        self.remove_client(addr)
                     
                     if addr not in self.clients:
                         continue
@@ -60,7 +62,7 @@ class Server:
                 break
     
     def start(self):
-        """Главный цикл сервера: запускает прием пакетов, считает физику и рассылает состояние мира."""
+        """Главный цикл сервера """
 
         threading.Thread(target=self.receive_loop, daemon=True).start()
         print(f"UDP сервер запущен на {self.host}:{self.port} ({self.tickrate} TPS)")
@@ -73,9 +75,16 @@ class Server:
                 now_wall = time.time()
                 
                 with self.lock:
+                    # Отчистка клиентов, которые аварийно отключились
+                    for addr in list(self.clients.keys()):
+                        last_seen = self.clients[addr][PacketKey.LAST_SEEN]
+                        if now_wall - last_seen > self.client_timeout:
+                            self.remove_client(addr)
+                            
                     self.on_update(self.tickrate_duration) # Обновление состояния сервера
-
+                    
                 next_tick_time += self.tickrate_duration
+                self.current_tick += 1
                 sleep_time = next_tick_time - time.perf_counter()
                 if sleep_time > 0:
                     time.sleep(sleep_time)
@@ -120,8 +129,11 @@ class Server:
             reply
         )
     
-    def remove_client(self, addr):
+    def remove_client(self, addr: tuple[str, int]):
         """ Убирает клиента из списка """
+        removed = self.clients.pop(addr)
+        if removed:
+            print(f"Клиент ID:{removed[PacketKey.ID]} отключился (IP:{addr})")
     
     def stop(self):
         self.kill = True

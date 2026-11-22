@@ -5,6 +5,7 @@ class RequestType:
     ID = 'id'
     MOVE = 'move'
     INFO = 'info'
+    MESSAGE = 'message'
 
 
 class PacketKey:
