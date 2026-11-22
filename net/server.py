@@ -7,6 +7,7 @@ import json
 # from config import *
 from net.protocol import PacketKey, RequestType, MatchState
 from utils import receive_data, send_data
+from config import *
 
 class Server:
     def __init__(self, addr: tuple[str, int] = ('0.0.0.0', 12345), tickrate=30):
@@ -67,6 +68,12 @@ class Server:
                     
                     if req == RequestType.START_GAME:
                         self.start_match(addr)
+                    
+                    if req == RequestType.MOVE:
+                        action = data.get(PacketKey.ACTION)
+                        if isinstance(action, dict):
+                            self.clients[addr][PacketKey.ACTION] = action
+                        
                 
             except (json.JSONDecodeError, UnicodeDecodeError):
                 continue
@@ -90,6 +97,8 @@ class Server:
                         if now_wall - last_seen > self.client_timeout:
                             self.remove_client(addr)
                             
+                    self.on_update(self.tickrate_duration)
+                            
                     # Сбор инфы
                     players_data = {}
                     
@@ -97,7 +106,9 @@ class Server:
                         pid = str(client[PacketKey.ID])
                         players_data[pid] = {
                             PacketKey.READY: client.get(PacketKey.READY),
-                            PacketKey.HOST: client.get(PacketKey.HOST)
+                            PacketKey.HOST: client.get(PacketKey.HOST),
+                            PacketKey.X: client.get(PacketKey.X),
+                            PacketKey.Y: client.get(PacketKey.Y)
                         }
                     
                     packet = {
@@ -109,10 +120,6 @@ class Server:
                     
                     for addr in self.clients:
                         send_data(self.server_socket, addr, packet)
-                        
-                        
-                    # Обновление игрового цикла
-                    self.on_update(self.tickrate_duration) # Обновление состояния сервера
                 
                 # Работа с тикрейтом
                 next_tick_time += self.tickrate_duration
@@ -142,6 +149,8 @@ class Server:
 
     def add_client(self, addr: tuple[str, int], is_host: bool=False):
         """ Добавляет нового клиента в список """
+        if len(self.clients) >= 4 or self.state != MatchState.LOBBY:
+            return
         
         if addr in self.clients:
             reply = {
@@ -156,6 +165,9 @@ class Server:
                 PacketKey.ID: self.next_id,  # ID игрока
                 PacketKey.HOST: is_host,  # Является ли хоостом лобби
                 PacketKey.READY: False,
+                PacketKey.X: 128 * self.next_id,
+                PacketKey.Y: 128,
+                PacketKey.ACTION: PLAYER_DIRECTION.copy(),
                 PacketKey.LAST_SEEN: time.time()  # Последний раз видели
             }
             # Ответ клиенту
@@ -219,7 +231,21 @@ class Server:
                 print(f"Не все игроки готовы ({num_ready}/{num_clients})")
         
     def on_update(self, delta_time):
-        ...
+        if self.state != MatchState.PLAYING:
+            return
+        
+        for player in self.clients.values():
+            self.move_player(player)
+
+        
+    def move_player(self, player):
+        action = player.get(PacketKey.ACTION)
+        
+        if action['left']:
+            player[PacketKey.X] -= PLAYER_SPEED * self.tickrate_duration
+        if action['right']:
+            player[PacketKey.X] += PLAYER_SPEED * self.tickrate_duration
+
 
 
 if __name__ == "__main__":

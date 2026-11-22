@@ -28,8 +28,8 @@ class PauseView(arcade.View):
             text_color=arcade.color.WHITE,
         )
         
-        label.with_background(color=arcade.color.AMAZON)
         label.with_padding(top=10, bottom=10, left=25, right=25)
+        label.with_background(color=arcade.color.AMAZON)
         self.box_layout.add(label)
         
         # Кнопка продолжить игру

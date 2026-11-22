@@ -7,6 +7,7 @@ import json
 # from config import *
 from net.protocol import PacketKey, RequestType, MatchState
 from utils.network_utils import receive_data, send_data
+from config import *
 
 
 class Client:
@@ -21,6 +22,7 @@ class Client:
         self.match_state = MatchState.LOBBY
 
         self.player_id = None
+        self.action = PLAYER_DIRECTION.copy()
         self.all_players = dict()
         
         # AF_INET — IPv4, SOCK_DGRAM — UDP
@@ -72,8 +74,8 @@ class Client:
             # Отправляем данные на сервер
             
             packet = {
-                PacketKey.REQUEST: RequestType.MESSAGE,
-                PacketKey.MESSAGE: str(current_tick) 
+                PacketKey.REQUEST: RequestType.MOVE,
+                PacketKey.ACTION: self.action 
             }
             
             send_data(self.server_socket, self.server_addr, packet)
@@ -171,6 +173,10 @@ class Client:
         """Возвращает (словарь_игроков, текущее_состояние_матча)."""
         with self.lock:
             return self.all_players.copy(), self.match_state
+    
+    def set_player_action(self, action: dict):
+        """ Действия игрока """
+        self.action = action.copy()
 
 if __name__ == '__main__':
     client = Client()

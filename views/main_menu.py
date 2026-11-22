@@ -54,7 +54,7 @@ class MainMenu(arcade.View):
         self.box_layout.add(connect_lobby_button)
         
         # Кастомизация персонажа
-        character_button = settings_button = gui.UIFlatButton(text="Персонаж", width=self.button_width)
+        character_button = gui.UIFlatButton(text="Персонаж", width=self.button_width)
         character_button.on_click = self.character_menu
         self.box_layout.add(character_button)
         

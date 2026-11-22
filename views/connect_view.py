@@ -56,11 +56,11 @@ class ConnectLobby(arcade.View):
     
     def on_connect_click(self, event):
         try:
-            self.window.client = Client()
             target_ip = self.ip_input.text.strip().split(":")
             target_ip[1] = int(target_ip[1])
             target_ip = tuple(target_ip)
         
+            self.window.client = Client()
             connected = self.window.client.connect(target_ip)
                     
             if connected:

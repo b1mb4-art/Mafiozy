@@ -1,10 +1,12 @@
-class MatchState:
+from enum import StrEnum
+
+class MatchState(StrEnum):
     """ Константы состояния матча """
     LOBBY = 'lobby'
     PLAYING = 'playing'
     GAME_OVER = 'game_over'
 
-class RequestType:
+class RequestType(StrEnum):
     """ Константы для типа запроса """
     CONNECT = 'connect'
     DISCONNECT = 'disconnect'
@@ -16,7 +18,7 @@ class RequestType:
     READY = 'ready'
 
 
-class PacketKey:
+class PacketKey(StrEnum):
     """ Константы для ключей """
     REQUEST = 'request'
     ID = 'id'
@@ -28,4 +30,5 @@ class PacketKey:
     HOST = "host"
     READY = 'ready'
     STATE = 'state'
-    PLAYERS = 'players'
+    X = 'x'
+    Y = 'y'
