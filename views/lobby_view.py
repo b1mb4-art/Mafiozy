@@ -75,9 +75,10 @@ class LobbyView(arcade.View):
         self.manager.draw()
     
     def on_update(self, delta_time):
-        # Cписок игроков в лобби
+        # Cписок игроков в лобби и состояние матча
         players, match_state = self.client.get_players_info()
         
+        # Инфа о игроках
         if players:
             lines = [f"Игроков в комнате: {len(players)}\n"]
             for pid in sorted(players.keys()):
@@ -92,8 +93,13 @@ class LobbyView(arcade.View):
         else:
             new_text = "Ожидание игроков..."
         
+        # Выводим в лобби
         if self.players_list_label.text != new_text:
             self.players_list_label.text = new_text
+            
+        # Запуск игры
+        if match_state == MatchState.PLAYING:
+            self.window.show_view(GameView())
 
     def on_start_match(self, event):
         if self.is_host:
