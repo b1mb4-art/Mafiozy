@@ -1,6 +1,147 @@
+import arcade
+import socket
+import time
+import threading
+import json
+
+# from config import *
+from protocol import PacketKey, RequestType
+from network_utils import receive_data, send_data
+
+
 class Client:
-    def __init__(self, addr: tuple[str, int]):
-        ...
+    def __init__(self):
+        self.server_addr = None
+        self.thread = None
+        self.kill = False
+        self.lock = threading.Lock()
+
+        self.player_id = None
+        self.all_players = dict()
+        
+        # AF_INET — IPv4, SOCK_DGRAM — UDP
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_socket.settimeout(0.5)
+    
+    def receive_loop(self):
+        """ Цикл получения пакетов с сервера """
+        while not self.kill:
+            try:
+                # Инфа от сервера
+                data, addr = receive_data(self.server_socket)
+
+                # Игнорируем пакет, если прислали не JSON-объект (словарь)
+                if not isinstance(data, dict) or addr != self.server_addr:
+                    continue
+
+                req = data.get(PacketKey.REQUEST)  # Тип запроса от клиента
+                
+                if req == RequestType.MESSAGE:
+                    print(data.get(PacketKey.MESSAGE))
+                
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+            except socket.timeout:
+                continue 
+            except OSError:
+                break
+    
+    def send_loop(self):
+        """ Цикл отправки пакетов на сервер """
+        send_duration = 1.0 / 30.0
+        next_tick = time.perf_counter()
+        current_tick = 0
+        
+        while not self.kill:
+            # Отправляем данные на сервер
+            
+            packet = {
+                PacketKey.REQUEST: RequestType.MESSAGE,
+                PacketKey.MESSAGE: str(current_tick) 
+            }
+            
+            send_data(self.server_socket, self.server_addr, packet)
+            
+            current_tick += 1
+            next_tick += send_duration
+            sleep_time = next_tick - time.perf_counter()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            else:
+                next_tick = time.perf_counter()
+    
+    def start(self):
+        """ Главный цикл клиента: """
+        self.kill = False
+        
+        self.thread_recieve = threading.Thread(target=self.receive_loop)
+        self.thread_recieve.start()
+        print("Запущены циклы получения пакетов с сервера")
+        
+        self.thread_send = threading.Thread(target=self.send_loop)
+        self.thread_send.start()
     
     def close(self):
+        self.kill = True
+        self.disconnect()
+        self.server_socket.close()
+    
+    def connect(self, addr) -> bool:
+        
+        packet = {
+            PacketKey.REQUEST: RequestType.CONNECT
+        }
+        
+        for attempt in range(1, 11):
+            try:
+                print(f"Попытка подключения {attempt}/10 к {addr}")
+
+                send_data(self.server_socket, addr, packet)
+                
+                data, _ = receive_data(self.server_socket)
+                
+                if data.get(PacketKey.REQUEST) == RequestType.CONNECT:
+                    try:
+                        print(data.get(PacketKey.MESSAGE))
+                    except:
+                        ...
+                    self.player_id = data.get(PacketKey.ID)
+                    self.server_addr = addr
+                    return True
+                    
+                
+            except socket.timeout:
+                # Если пакет потерялся или сервер еще не ответил — пробуем снова
+                continue
+            except ConnectionResetError:
+                # В Windows возникает, если сервер вообще не запущен (порт закрыт)
+                print("Сервер недоступен (порт закрыт).")
+                time.sleep(0.5)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+        
+        return False
+
+
+    def disconnect(self):
+        if self.server_addr:
+            try:
+                send_data(self.server_socket, self.server_addr, {
+                    PacketKey.REQUEST: RequestType.DISCONNECT
+                })
+            except OSError:
+                pass
+
+    def add_player(self, id: int):
         ...
+
+if __name__ == '__main__':
+    client = Client()
+    
+    time.sleep(1)
+    
+    if client.connect(("127.0.0.1", 12345)):
+        print("Подключился")
+        client.start()
+    else:
+        print("Не удалось подключиться")

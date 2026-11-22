@@ -48,6 +48,8 @@ class Server:
                         self.add_client(addr)
                     elif req == RequestType.DISCONNECT:
                         self.remove_client(addr)
+                    elif req == RequestType.MESSAGE:
+                        print(f"Клиент (ID: {self.clients[addr].get(PacketKey.ID)}) отправил сообщение: {data.get(PacketKey.MESSAGE)}")
                     
                     if addr not in self.clients:
                         continue
