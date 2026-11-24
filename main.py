@@ -2,10 +2,11 @@ import arcade
 
 from views import MainMenu
 from utils import disconnect_lobby
+from config import *
 
 
 class Game(arcade.Window):
-    def __init__(self, width = 1280, height = 720, title = "Arcade Window", fullscreen = False):
+    def __init__(self, width = SCREEN_WIDTH, height = SCREEN_HEIGHT, title = "Mafiozy", fullscreen = False):
         super().__init__(width, height, title, fullscreen, center_window=True)
         arcade.enable_timings()
         

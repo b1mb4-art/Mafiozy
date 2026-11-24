@@ -32,3 +32,6 @@ class PacketKey(StrEnum):
     STATE = 'state'
     X = 'x'
     Y = 'y'
+    SPRITE = 'sprite'
+    ENGINE = "engine"
+    FACING = "facing"

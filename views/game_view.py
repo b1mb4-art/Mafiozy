@@ -28,10 +28,10 @@ class GameView(arcade.View):
         
         self.all_players.update()
         
+        self.move_players()
+        
         self.client.set_player_action(self.direction)
         
-        self.move_players()
-    
     def on_key_press(self, key, modifiers):
         """ Обработка нажатых клавишь """
         if key == arcade.key.ESCAPE:

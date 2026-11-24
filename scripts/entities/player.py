@@ -22,10 +22,6 @@ class Player(arcade.Sprite):
         self.center_x = x
         self.center_y = y
     
-    def move(self):
-        """ Предикт движения """
-        ...
-    
     def update(self, delta_time=1 / 60):
         """ Обнавление персонажа """
         

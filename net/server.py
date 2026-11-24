@@ -14,20 +14,23 @@ class Server:
         self.host, self.port = addr
         self.kill = False
         
-        self.host_id = -1
+        # матч
         self.state = MatchState.LOBBY
+        self.collide_sprites = arcade.SpriteList(use_spatial_hash=True)
         
         # Тикрейт
         self.tickrate = tickrate
         self.tickrate_duration = 1 / self.tickrate
         self.current_tick = 0
         
-        self.lock = threading.Lock()
+        # клиент
+        self.host_id = -1
         self.client_timeout = 5.0
         self.clients = dict()
         self.next_id = 0
 
         # AF_INET — IPv4, SOCK_DGRAM — UDP
+        self.lock = threading.Lock()
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.settimeout(0.5)
@@ -108,14 +111,15 @@ class Server:
                             PacketKey.READY: client.get(PacketKey.READY),
                             PacketKey.HOST: client.get(PacketKey.HOST),
                             PacketKey.X: client.get(PacketKey.X),
-                            PacketKey.Y: client.get(PacketKey.Y)
+                            PacketKey.Y: client.get(PacketKey.Y),
+                            PacketKey.FACING: self.clients.get(PacketKey.FACING)
                         }
                     
                     packet = {
                         PacketKey.REQUEST: RequestType.INFO,
                         PacketKey.TICK: self.current_tick,
                         PacketKey.STATE: self.state,
-                        PacketKey.PLAYERS: players_data
+                        PacketKey.PLAYERS: players_data,
                     }
                     
                     for addr in self.clients:
@@ -161,13 +165,20 @@ class Server:
             print(f"Клиент уже есть на сервере, его ID:{self.clients[addr][PacketKey.ID]}, IP:{addr}")
         else:
             # Добавление клиента на сервер
+            x = 128 * self.next_id
+            y = 128
+            sprite = self.create_server_player_hitbox(x, y)
+            engine = self.create_server_player_engine(sprite)
             self.clients[addr] = {
                 PacketKey.ID: self.next_id,  # ID игрока
                 PacketKey.HOST: is_host,  # Является ли хоостом лобби
                 PacketKey.READY: False,
-                PacketKey.X: 128 * self.next_id,
-                PacketKey.Y: 128,
+                PacketKey.X: x,
+                PacketKey.Y: y,
                 PacketKey.ACTION: PLAYER_DIRECTION.copy(),
+                PacketKey.SPRITE: sprite,
+                PacketKey.ENGINE: engine,
+                PacketKey.FACING: 1, 
                 PacketKey.LAST_SEEN: time.time()  # Последний раз видели
             }
             # Ответ клиенту
@@ -229,6 +240,21 @@ class Server:
                     }
                 )
                 print(f"Не все игроки готовы ({num_ready}/{num_clients})")
+    
+    def create_server_player_hitbox(self, x: float, y: float) -> arcade.Sprite:
+        sprite = arcade.Sprite(center_x=x, center_y=y)
+        sprite.width = PLAYER_WIDTH
+        sprite.height = PLAYER_HEIGHT
+        
+        return sprite
+
+    def create_server_player_engine(self, player_sprite: arcade.Sprite) -> arcade.PhysicsEnginePlatformer:
+        engine = arcade.PhysicsEnginePlatformer(
+            player_sprite=player_sprite,
+            walls=self.collide_sprites,
+            gravity_constant=0
+        )
+        return engine
         
     def on_update(self, delta_time):
         if self.state != MatchState.PLAYING:
@@ -236,17 +262,44 @@ class Server:
         
         for player in self.clients.values():
             self.move_player(player)
-
         
-    def move_player(self, player):
+    def move_player(self, player: dict):
         action = player.get(PacketKey.ACTION)
+        player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
+        engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
+        acceleration = 0
         
         if action['left']:
-            player[PacketKey.X] -= PLAYER_SPEED * self.tickrate_duration
-        if action['right']:
-            player[PacketKey.X] += PLAYER_SPEED * self.tickrate_duration
-
-
+            acceleration = -PLAYER_ACCELERATION_X
+            player[PacketKey.FACING] = -1
+        elif action['right']:
+            acceleration = PLAYER_ACCELERATION_X
+            player[PacketKey.FACING] = 1
+        
+        player_sprite.change_x += acceleration
+        if acceleration:
+            if player_sprite.change_x >= PLAYER_MAX_SPEED_X:
+                player_sprite.change_x = PLAYER_MAX_SPEED_X
+            if player_sprite.change_x <= -PLAYER_MAX_SPEED_X:
+                player_sprite.change_x = -PLAYER_MAX_SPEED_X
+        else:
+            if player_sprite.change_x > 0:
+                if (player_sprite.change_x - PLAYER_ACCELERATION_X) <= 0:
+                    player_sprite.change_x = 0
+                else:
+                    player_sprite.change_x -= PLAYER_ACCELERATION_X
+            elif player_sprite.change_x < 0:
+                if (player_sprite.change_x + PLAYER_ACCELERATION_X) >= 0:
+                    player_sprite.change_x = 0
+                else:
+                    player_sprite.change_x += PLAYER_ACCELERATION_X
+            
+        
+        engine.update()
+        
+        player[PacketKey.X] = player_sprite.center_x
+        player[PacketKey.Y] = player_sprite.center_y
+        
 
 if __name__ == "__main__":
     server = Server()
