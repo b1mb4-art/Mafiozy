@@ -8,6 +8,7 @@ import json
 from net.protocol import PacketKey, RequestType, MatchState
 from utils import receive_data, send_data
 from config import *
+from scripts import Level
 
 class Server:
     def __init__(self, addr: tuple[str, int] = ('0.0.0.0', 12345), tickrate=30):

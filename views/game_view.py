@@ -2,7 +2,8 @@ import arcade
 
 from net import Client
 from net.protocol import PacketKey, MatchState 
-from scripts.entities import Player
+from scripts import Player
+
 from config import *
 
 class GameView(arcade.View):
@@ -20,6 +21,8 @@ class GameView(arcade.View):
     def on_draw(self):
         """ Цикл отрисовки """
         self.clear()
+        
+        self.client.collide_sprites.draw()
         
         self.all_players.draw()
     

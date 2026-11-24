@@ -8,7 +8,7 @@ import json
 from net.protocol import PacketKey, RequestType, MatchState
 from utils.network_utils import receive_data, send_data
 from config import *
-
+from scripts import Level
 
 class Client:
     def __init__(self):
@@ -20,6 +20,8 @@ class Client:
         self.lock = threading.Lock()
 
         self.match_state = MatchState.LOBBY
+        self.Level = Level()
+        self.collide_sprites = self.Level.get_collide_sprites()
 
         self.player_id = None
         self.action = PLAYER_DIRECTION.copy()
