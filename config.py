@@ -8,7 +8,7 @@ SCREEN_HEIGHT = 720
 TILE_SIZE = 32
 
 # Игрок
-PLAYER_WIDTH = 32
+PLAYER_WIDTH = TILE_SIZE
 PLAYER_HEIGHT = PLAYER_WIDTH * 2
 PLAYER_MAX_SPEED_X = 15
 PLAYER_MAX_SPEED_Y = 10
@@ -21,5 +21,7 @@ PLAYER_DIRECTION = {
     'up': False,
     'down': False
 }
+
+# Оружие
 
 # Пуля
