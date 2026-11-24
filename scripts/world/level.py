@@ -5,14 +5,16 @@ from .tile import Tile
 from config import *
 
 class Level:
-    def __init__(self, level_name="test"):
+    def __init__(self, level_name="test", is_server: bool=False):
         self.level_name = level_name
-        self.setup_level()
+        self.is_server = is_server
+        self.collide_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
+        self.spawn_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
     
     def setup_level(self):
         """ Прогружает карту """
-        self.collide_sprites = arcade.SpriteList(use_spatial_hash=True)
-        self.spawn_sprites = arcade.SpriteList(use_spatial_hash=True)
+        self.collide_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
+        self.spawn_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
         
         self.text_map = self.load_level_from_file()
         self.load_level_sprites()
@@ -20,10 +22,11 @@ class Level:
     def load_level_from_file(self) -> list[list]:
         """ Выгружает text map из файла """
         data = list()
-        with open(file=f"level/text_maps/test.csv", mode='r', encoding='utf-8') as file:
+        with open(file=f"scripts/world/text_maps/{self.level_name}.csv", mode='r', encoding='utf-8') as file:
             reader = csv.reader(file, delimiter=';')
             for i in list(reader):
                 data.append(i)
+        data.reverse()
         return data
     
     def load_level_sprites(self):
@@ -40,7 +43,19 @@ class Level:
 
     def add_tile(self, center_x: float, center_y: float):
         """ Добавляет новую стенку в collide_sprites """
-        tile = Tile(center_x=center_x, center_y=center_y)
+        if self.is_server:
+            tile = arcade.Sprite(
+                path_or_texture=arcade.make_soft_square_texture(
+                    size=TILE_SIZE,
+                    color=(0, 0, 0, 0),
+                    outer_alpha=0
+                ),
+                center_x=center_x,
+                center_y=center_y
+            )
+        else:
+            tile = Tile(center_x=center_x, center_y=center_y)
+
         self.collide_sprites.append(tile)
     
     def add_spawn(self, x: float, y: float):
@@ -56,8 +71,8 @@ class Level:
     def get_collide_sprites(self) -> arcade.SpriteList:
         return self.collide_sprites
 
-    def get_srawn_sprites(self) -> arcade.SpriteList:
-        return self.collide_sprites
+    def get_spawn_sprites(self) -> arcade.SpriteList:
+        return self.spawn_sprites
                 
 if __name__ == "__main__":
     level = Level()

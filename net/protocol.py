@@ -6,6 +6,7 @@ class MatchState(StrEnum):
     PLAYING = 'playing'
     GAME_OVER = 'game_over'
 
+
 class RequestType(StrEnum):
     """ Константы для типа запроса """
     CONNECT = 'connect'
@@ -35,3 +36,4 @@ class PacketKey(StrEnum):
     SPRITE = 'sprite'
     ENGINE = "engine"
     FACING = "facing"
+    LEVEL_NAME = "level_name"

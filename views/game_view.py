@@ -2,7 +2,7 @@ import arcade
 
 from net import Client
 from net.protocol import PacketKey, MatchState 
-from scripts import Player
+from scripts import Player, Level
 
 from config import *
 
@@ -13,6 +13,9 @@ class GameView(arcade.View):
 
         self.client: Client = self.window.client
         
+        self.current_level_name = ""
+        self.level = Level()
+        
         self.all_players = arcade.SpriteList()
         self.load_players()
         
@@ -22,12 +25,15 @@ class GameView(arcade.View):
         """ Цикл отрисовки """
         self.clear()
         
-        self.client.collide_sprites.draw()
-        
+        self.level.get_collide_sprites().draw()        
         self.all_players.draw()
     
     def on_update(self, delta_time):
         """ Основной цикл игры """
+        
+        if self.current_level_name != self.client.current_level_name:
+            self.current_level_name = self.client.current_level_name
+            self.load_level()
         
         self.all_players.update()
         
@@ -84,3 +90,7 @@ class GameView(arcade.View):
                 x=players_data[player.id][PacketKey.X],
                 y=players_data[player.id][PacketKey.Y]
             )
+
+    def load_level(self):
+        self.level.set_level_name(self.current_level_name)
+        self.level.setup_level()

@@ -17,7 +17,10 @@ class Server:
         
         # матч
         self.state = MatchState.LOBBY
-        self.collide_sprites = arcade.SpriteList(use_spatial_hash=True)
+        self.current_level_name = ""
+        self.level = Level(is_server=True)
+        self.collide_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
+        self.spawn_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
         
         # Тикрейт
         self.tickrate = tickrate
@@ -113,13 +116,14 @@ class Server:
                             PacketKey.HOST: client.get(PacketKey.HOST),
                             PacketKey.X: client.get(PacketKey.X),
                             PacketKey.Y: client.get(PacketKey.Y),
-                            PacketKey.FACING: self.clients.get(PacketKey.FACING)
+                            PacketKey.FACING: client.get(PacketKey.FACING)
                         }
                     
                     packet = {
                         PacketKey.REQUEST: RequestType.INFO,
                         PacketKey.TICK: self.current_tick,
                         PacketKey.STATE: self.state,
+                        PacketKey.LEVEL_NAME: self.current_level_name,
                         PacketKey.PLAYERS: players_data,
                     }
                     
@@ -230,6 +234,9 @@ class Server:
             
             if num_ready == num_clients:
                 self.state = MatchState.PLAYING
+                
+                self.load_level()
+
                 print("Матч запущен")
             else:
                 send_data(
@@ -244,6 +251,11 @@ class Server:
     
     def create_server_player_hitbox(self, x: float, y: float) -> arcade.Sprite:
         sprite = arcade.Sprite(center_x=x, center_y=y)
+        sprite.texture = arcade.make_soft_square_texture(
+            size=50,
+            color=(0, 0, 0),
+            outer_alpha=255
+        )
         sprite.width = PLAYER_WIDTH
         sprite.height = PLAYER_HEIGHT
         
@@ -301,6 +313,29 @@ class Server:
         player[PacketKey.X] = player_sprite.center_x
         player[PacketKey.Y] = player_sprite.center_y
         
+    def load_level(self):
+        self.current_level_name = "test"
+        self.level.set_level_name(self.current_level_name)
+        self.level.setup_level()
+        self.collide_sprites = self.level.get_collide_sprites()
+        self.spawn_sprites = self.level.get_spawn_sprites()
+        self.players_on_spawns()
+    
+    def players_on_spawns(self):
+        c = 0
+        for client in self.clients.values():
+            sprite: arcade.Sprite = client.get(PacketKey.SPRITE)
+            engine: arcade.PhysicsEnginePlatformer = client.get(PacketKey.ENGINE)
+            spawn: arcade.Sprite = self.spawn_sprites[c]
+
+            sprite.center_x = spawn.center_x
+            sprite.center_y = spawn.center_y
+        
+            engine.walls = self.collide_sprites
+            c += 1
+            
+            
+
 
 if __name__ == "__main__":
     server = Server()

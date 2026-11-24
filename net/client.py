@@ -8,7 +8,6 @@ import json
 from net.protocol import PacketKey, RequestType, MatchState
 from utils.network_utils import receive_data, send_data
 from config import *
-from scripts import Level
 
 class Client:
     def __init__(self):
@@ -20,8 +19,7 @@ class Client:
         self.lock = threading.Lock()
 
         self.match_state = MatchState.LOBBY
-        self.Level = Level()
-        self.collide_sprites = self.Level.get_collide_sprites()
+        self.current_level_name = ""
 
         self.player_id = None
         self.action = PLAYER_DIRECTION.copy()
@@ -54,6 +52,10 @@ class Client:
                         raw_players = data.get(PacketKey.PLAYERS, {})
                         with self.lock:
                             self.match_state = data.get(PacketKey.STATE, self.match_state)
+                            
+                            if data.get(PacketKey.LEVEL_NAME) != self.current_level_name:
+                                self.current_level_name = data.get(PacketKey.LEVEL_NAME)
+
                             # Переводим строковые ключи ID обратно в целые числа (int)
                             self.all_players = {
                                 int(pid): info for pid, info in raw_players.items()
@@ -179,6 +181,7 @@ class Client:
     def set_player_action(self, action: dict):
         """ Действия игрока """
         self.action = action.copy()
+
 
 if __name__ == '__main__':
     client = Client()
