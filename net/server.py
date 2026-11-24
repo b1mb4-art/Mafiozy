@@ -265,7 +265,7 @@ class Server:
         engine = arcade.PhysicsEnginePlatformer(
             player_sprite=player_sprite,
             walls=self.collide_sprites,
-            gravity_constant=0
+            gravity_constant=PLAYER_ACCELERATION_Y
         )
         return engine
         
@@ -274,12 +274,25 @@ class Server:
             return
         
         for player in self.clients.values():
+            player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
+            engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
+            
             self.move_player(player)
+
+            old_x = player_sprite.center_x
+            engine.update()
+            if old_x == player_sprite.center_x:
+                player_sprite.change_x = 0
+            
+            self.on_jump(player)
+            
+            # Новый координаты
+            player[PacketKey.X] = player_sprite.center_x
+            player[PacketKey.Y] = player_sprite.center_y
         
     def move_player(self, player: dict):
         action = player.get(PacketKey.ACTION)
         player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
-        engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
         acceleration = 0
         
         if action['left']:
@@ -289,6 +302,7 @@ class Server:
             acceleration = PLAYER_ACCELERATION_X
             player[PacketKey.FACING] = 1
         
+        # Скорость с ускорением
         player_sprite.change_x += acceleration
         if acceleration:
             if player_sprite.change_x >= PLAYER_MAX_SPEED_X:
@@ -306,13 +320,18 @@ class Server:
                     player_sprite.change_x = 0
                 else:
                     player_sprite.change_x += PLAYER_ACCELERATION_X
-            
-        
-        engine.update()
-        
-        player[PacketKey.X] = player_sprite.center_x
-        player[PacketKey.Y] = player_sprite.center_y
-        
+
+    def on_jump(self, player: dict):
+        action = player.get(PacketKey.ACTION)
+        player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
+        engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
+
+        if action.get('up') and engine.can_jump():
+            engine.jump(PLAYER_JUMP_SPEED)
+
+        if not action.get('up') and player_sprite.change_y > 0:
+            player_sprite.change_y *= 0.6
+    
     def load_level(self):
         self.current_level_name = "test"
         self.level.set_level_name(self.current_level_name)
@@ -330,11 +349,9 @@ class Server:
 
             sprite.center_x = spawn.center_x
             sprite.center_y = spawn.center_y
-        
+
             engine.walls = self.collide_sprites
-            c += 1
-            
-            
+            c += 1     
 
 
 if __name__ == "__main__":
