@@ -2,7 +2,7 @@ import arcade
 import arcade.gui as gui
 
 from .game_view import GameView
-from net.protocol import PacketKey, MatchState, RequestType
+from utils.protocol import PacketKey, MatchState, RequestType
 from utils import disconnect_lobby
 
 

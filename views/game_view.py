@@ -1,7 +1,7 @@
 import arcade
 
 from net import Client
-from net.protocol import PacketKey, MatchState 
+from utils import PacketKey, MatchState
 from scripts import Player, Level
 
 from config import *
@@ -25,7 +25,7 @@ class GameView(arcade.View):
         """ Цикл отрисовки """
         self.clear()
         
-        self.level.get_collide_sprites().draw()        
+        self.level.get_drawing_sprites().draw()        
         self.all_players.draw()
     
     def on_update(self, delta_time):

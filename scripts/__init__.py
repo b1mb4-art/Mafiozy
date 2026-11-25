@@ -1,2 +1,2 @@
 from .entities import Player
-from .world import Level, Tile
+from .world import Level, Tile, WeaponStand

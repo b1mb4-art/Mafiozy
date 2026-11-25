@@ -5,8 +5,7 @@ import threading
 import json
 
 # from config import *
-from net.protocol import PacketKey, RequestType, MatchState
-from utils.network_utils import receive_data, send_data
+from utils import PacketKey, RequestType, MatchState, receive_data, send_data
 from config import *
 
 class Client:

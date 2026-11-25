@@ -4,9 +4,7 @@ import time
 import threading
 import json
 
-# from config import *
-from net.protocol import PacketKey, RequestType, MatchState
-from utils import receive_data, send_data
+from utils import receive_data, send_data, PacketKey, RequestType, MatchState
 from config import *
 from scripts import Level
 
@@ -338,6 +336,7 @@ class Server:
         self.level.setup_level()
         self.collide_sprites = self.level.get_collide_sprites()
         self.spawn_sprites = self.level.get_spawn_sprites()
+        self.other_sprites = self.level.ger
         self.players_on_spawns()
     
     def players_on_spawns(self):

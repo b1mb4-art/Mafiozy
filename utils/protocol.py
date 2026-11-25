@@ -37,3 +37,8 @@ class PacketKey(StrEnum):
     ENGINE = "engine"
     FACING = "facing"
     LEVEL_NAME = "level_name"
+    
+
+class SpriteType(StrEnum):
+    WEAPON_STAND = 'weapon_stand'
+    SPAWN = 'spawn'
