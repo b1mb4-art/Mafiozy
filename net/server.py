@@ -34,6 +34,7 @@ class Server:
         
         self.next_weapon_id = 0
         self.weapons = {}
+        self.next_bullet_id = 0
         self.bullets = {}
 
         # AF_INET — IPv4, SOCK_DGRAM — UDP
@@ -265,7 +266,7 @@ class Server:
         else:
             x, y = center_x, center_y
 
-        is_auto, width, height = self.setup_weapon(weapon_type)
+        is_auto, width, height = self.setup_weapon_param(weapon_type)
 
         self.next_weapon_id += 1
         sprite = arcade.Sprite(center_x=x, center_y=y)
@@ -298,7 +299,7 @@ class Server:
         
         self.weapons[self.next_weapon_id] = weapon
     
-    def setup_weapon(self, weapon_type=None) -> tuple[bool, int, int]:
+    def setup_weapon_param(self, weapon_type=None) -> tuple[bool, int, int]:
         if weapon_type is None:
             return
 
@@ -307,7 +308,28 @@ class Server:
             width, height = PISTOL_SIZE
         
         return (is_auto, width, height)
+
+    def create_bullet(self, x, y, player_id):
+        sprite = arcade.Sprite(center_x=x, center_y=y)
+        sprite.texture = arcade.make_soft_square_texture(
+            size=10,
+            color=(0, 0, 255),
+            outer_alpha=255
+        )
+        sprite.width, sprite.height = BULLET_SIZE
+        sprite.sync_hit_box_to_texture()
         
+        bullet = {
+            PacketKey.ID: self.next_bullet_id,
+            PacketKey.X: x,
+            PacketKey.Y: y,
+            PacketKey.OWNER_ID: player_id,
+            PacketKey.SPRITE: sprite,
+            PacketKey.BULLET_LIFE_TIME: BULLET_LIFETIME
+        }
+        self.bullets[bullet[PacketKey.ID]] = bullet
+        self.next_bullet_id += 1
+
     def on_update(self, delta_time):
         if self.state != MatchState.PLAYING:
             return
@@ -319,6 +341,9 @@ class Server:
         
         for weapon in self.weapons.values():
             self.update_weapon(weapon)
+        
+        for bullet in self.bullets.values():
+            self.update_bullet(bullet)
 
     def update_weapon(self, weapon: dict):
         """ Обновление положение оружия """
@@ -345,7 +370,10 @@ class Server:
         
         weapon[PacketKey.X] = weapon_sprite.center_x
         weapon[PacketKey.Y] = weapon_sprite.center_y
-    
+
+    def update_bullet(self, bullet: dict):
+        """ Обновление положения пули """
+
     def update_player(self, player: dict):
         """ Обновление положениея игрока и его действий """
         player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)

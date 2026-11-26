@@ -45,7 +45,7 @@ class PacketKey(StrEnum):
     WEAPON_TYPE = 'weapon_type'
     IS_AUTO = 'is_auto'
     BULLETS = 'bullets'
-    HP = 'hp'
+    BULLET_LIFE_TIME = 'bullet_life_time'
     AMMO = 'ammo'
     OWNER_ID = 'owner_id'
     COOLDOWN = 'cooldown'
