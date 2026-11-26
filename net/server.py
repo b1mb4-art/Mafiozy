@@ -343,6 +343,7 @@ class Server:
         for player in self.clients.values():
             self.update_player(player)
             self.handle_pickup_weapon(player)
+            self.handle_shoot(player)
         
         for weapon in self.weapons.values():
             self.update_weapon(weapon)
@@ -483,7 +484,7 @@ class Server:
                     weapon[PacketKey.OWNER_ID] = player.get(PacketKey.ID)
                     break
 
-    def on_shoot(self, player_info: dict, weapon_info: dict):
+    def handle_shoot(self, player: dict):
         """ Стрельба """
         ...
 
