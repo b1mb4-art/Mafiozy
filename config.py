@@ -1,3 +1,5 @@
+from utils import ActionKey
+
 """ Основные константы """
 
 # Экран
@@ -16,12 +18,16 @@ PLAYER_ACCELERATION_X = 2
 PLAYER_ACCELERATION_Y = 1.5
 PLAYER_JUMP_SPEED = 25
 PLAYER_DIRECTION = {
-    'left': False,
-    'right': False,
-    'up': False,
-    'down': False
+    ActionKey.LEFT: False,
+    ActionKey.RIGHT: False,
+    ActionKey.UP: False,
+    ActionKey.DOWN: False,
+    ActionKey.PICKUP_SEQ: 0,
+    ActionKey.SHOOT: False,
+    ActionKey.SHOT: 0
 }
 
 # Оружие
+PISTOL_SIZE = (16, 8)
 
 # Пуля

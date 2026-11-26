@@ -4,7 +4,7 @@ import time
 import threading
 import json
 
-from utils import receive_data, send_data, PacketKey, RequestType, MatchState
+from utils import receive_data, send_data, PacketKey, RequestType, MatchState, WeaponType, ActionKey
 from config import *
 from scripts import Level
 
@@ -19,6 +19,7 @@ class Server:
         self.level = Level(is_server=True)
         self.collide_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
         self.spawn_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
+        self.weapon_stand_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
         
         # Тикрейт
         self.tickrate = tickrate
@@ -30,6 +31,9 @@ class Server:
         self.client_timeout = 5.0
         self.clients = dict()
         self.next_id = 0
+        
+        self.next_weapon_id = 0
+        self.weapons = {}
 
         # AF_INET — IPv4, SOCK_DGRAM — UDP
         self.lock = threading.Lock()
@@ -117,12 +121,22 @@ class Server:
                             PacketKey.FACING: client.get(PacketKey.FACING)
                         }
                     
+                    weapons_data = {}
+                    for weapon in self.weapons.values():
+                        pid = str(weapon[PacketKey.ID])
+                        weapons_data[pid] = {
+                            PacketKey.X: weapon.get(PacketKey.X),
+                            PacketKey.Y: weapon.get(PacketKey.Y),
+                            PacketKey.WEAPON_TYPE: weapon.get(PacketKey.WEAPON_TYPE)
+                        }       
+
                     packet = {
                         PacketKey.REQUEST: RequestType.INFO,
                         PacketKey.TICK: self.current_tick,
                         PacketKey.STATE: self.state,
                         PacketKey.LEVEL_NAME: self.current_level_name,
                         PacketKey.PLAYERS: players_data,
+                        PacketKey.WEAPONS: weapons_data,
                     }
                     
                     for addr in self.clients:
@@ -181,7 +195,8 @@ class Server:
                 PacketKey.ACTION: PLAYER_DIRECTION.copy(),
                 PacketKey.SPRITE: sprite,
                 PacketKey.ENGINE: engine,
-                PacketKey.FACING: 1, 
+                PacketKey.FACING: 1,
+                PacketKey.WEAPON_ID: 0,
                 PacketKey.LAST_SEEN: time.time()  # Последний раз видели
             }
             # Ответ клиенту
@@ -251,7 +266,7 @@ class Server:
         sprite = arcade.Sprite(center_x=x, center_y=y)
         sprite.texture = arcade.make_soft_square_texture(
             size=50,
-            color=(0, 0, 0),
+            color=(0, 0, 0, 0),
             outer_alpha=255
         )
         sprite.width = PLAYER_WIDTH
@@ -267,6 +282,55 @@ class Server:
         )
         return engine
         
+    def create_new_weapon(self, stand_sprite: arcade.Sprite=None, center_x=0, center_y=0, weapon_type: WeaponType=None):
+        """ Создает оружие на стенде или по координатам """
+        if weapon_type is None:
+            return
+        if stand_sprite:
+            x, y = stand_sprite.center_x, stand_sprite.center_y
+        else:
+            x, y = center_x, center_y
+
+        is_auto, width, height = self.setup_weapon(weapon_type)
+
+        self.next_weapon_id += 1
+        sprite = arcade.Sprite(center_x=x, center_y=y)
+        sprite.texture = arcade.make_soft_square_texture(
+            size=50,
+            color=(0, 0, 255),
+            outer_alpha=255
+        )
+        sprite.width = width
+        sprite.height = height
+        
+        engine = arcade.PhysicsEnginePlatformer(
+            sprite,
+            walls=self.collide_sprites,
+            gravity_constant=PLAYER_ACCELERATION_Y
+        )
+
+        weapon = {
+            PacketKey.ID: self.next_weapon_id,
+            PacketKey.X: x,
+            PacketKey.Y: y,
+            PacketKey.IS_AUTO: is_auto,
+            PacketKey.WEAPON_TYPE: weapon_type,
+            PacketKey.SPRITE: sprite,
+            PacketKey.ENGINE: engine
+        }
+        
+        self.weapons[self.next_weapon_id] = weapon
+    
+    def setup_weapon(self, weapon_type=None) -> tuple[bool, int, int]:
+        if weapon_type is None:
+            return
+
+        if weapon_type == WeaponType.PISTOL:
+            is_auto = False
+            width, height = PISTOL_SIZE
+        
+        return (is_auto, width, height)
+        
     def on_update(self, delta_time):
         if self.state != MatchState.PLAYING:
             return
@@ -276,27 +340,34 @@ class Server:
             engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
             
             self.move_player(player)
+            self.on_jump(player)
 
             old_x = player_sprite.center_x
             engine.update()
             if old_x == player_sprite.center_x:
                 player_sprite.change_x = 0
             
-            self.on_jump(player)
-            
             # Новый координаты
             player[PacketKey.X] = player_sprite.center_x
             player[PacketKey.Y] = player_sprite.center_y
+        
+        for weapon in self.weapons.values():
+            weapon_sprite: arcade.Sprite = weapon.get(PacketKey.SPRITE)
+            engine: arcade.PhysicsEnginePlatformer = weapon.get(PacketKey.ENGINE)
+            
+            engine.update()
+            weapon[PacketKey.X] = weapon_sprite.center_x
+            weapon[PacketKey.Y] = weapon_sprite.center_y
         
     def move_player(self, player: dict):
         action = player.get(PacketKey.ACTION)
         player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
         acceleration = 0
         
-        if action['left']:
+        if action[ActionKey.LEFT]:
             acceleration = -PLAYER_ACCELERATION_X
             player[PacketKey.FACING] = -1
-        elif action['right']:
+        elif action[ActionKey.RIGHT]:
             acceleration = PLAYER_ACCELERATION_X
             player[PacketKey.FACING] = 1
         
@@ -324,10 +395,10 @@ class Server:
         player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
         engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
 
-        if action.get('up') and engine.can_jump():
+        if action.get(ActionKey.UP) and engine.can_jump():
             engine.jump(PLAYER_JUMP_SPEED)
 
-        if not action.get('up') and player_sprite.change_y > 0:
+        if not action.get(ActionKey.UP) and player_sprite.change_y > 0:
             player_sprite.change_y *= 0.6
     
     def load_level(self):
@@ -336,7 +407,7 @@ class Server:
         self.level.setup_level()
         self.collide_sprites = self.level.get_collide_sprites()
         self.spawn_sprites = self.level.get_spawn_sprites()
-        self.other_sprites = self.level.ger
+        self.weapon_stand_sprites = self.level.get_weapon_stand_sprites()
         self.players_on_spawns()
     
     def players_on_spawns(self):
@@ -345,6 +416,8 @@ class Server:
             sprite: arcade.Sprite = client.get(PacketKey.SPRITE)
             engine: arcade.PhysicsEnginePlatformer = client.get(PacketKey.ENGINE)
             spawn: arcade.Sprite = self.spawn_sprites[c]
+            
+            self.create_new_weapon(center_x=spawn.center_x, center_y=spawn.center_y, weapon_type=WeaponType.PISTOL)
 
             sprite.center_x = spawn.center_x
             sprite.center_y = spawn.center_y

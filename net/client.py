@@ -24,6 +24,8 @@ class Client:
         self.action = PLAYER_DIRECTION.copy()
         self.all_players = dict()
         
+        self.all_weapons = dict()
+        
         # AF_INET — IPv4, SOCK_DGRAM — UDP
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_socket.settimeout(0.5)
@@ -49,6 +51,7 @@ class Client:
                     if tick > self.last_tick:
                         self.last_tick = tick
                         raw_players = data.get(PacketKey.PLAYERS, {})
+                        raw_weapon = data.get(PacketKey.WEAPONS, {})
                         with self.lock:
                             self.match_state = data.get(PacketKey.STATE, self.match_state)
                             
@@ -58,6 +61,10 @@ class Client:
                             # Переводим строковые ключи ID обратно в целые числа (int)
                             self.all_players = {
                                 int(pid): info for pid, info in raw_players.items()
+                            }
+                            
+                            self.all_weapons = {
+                                int(pid): info for pid, info in raw_weapon.items()
                             }
                 
             except (json.JSONDecodeError, UnicodeDecodeError):
@@ -176,6 +183,10 @@ class Client:
         """Возвращает (словарь_игроков, текущее_состояние_матча)."""
         with self.lock:
             return self.all_players.copy(), self.match_state
+    
+    def get_weapons_info(self):
+        with self.lock:
+            return self.all_weapons.copy()
     
     def set_player_action(self, action: dict):
         """ Действия игрока """

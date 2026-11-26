@@ -1,0 +1,1 @@
+from .pistal import Pistol
