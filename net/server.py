@@ -34,6 +34,7 @@ class Server:
         
         self.next_weapon_id = 0
         self.weapons = {}
+        self.bullets = {}
 
         # AF_INET — IPv4, SOCK_DGRAM — UDP
         self.lock = threading.Lock()
@@ -107,37 +108,8 @@ class Server:
                             self.remove_client(addr)
                             
                     self.on_update(self.tickrate_duration)
-                            
-                    # Сбор инфы
-                    players_data = {}
-                    
-                    for client in self.clients.values():
-                        pid = str(client[PacketKey.ID])
-                        players_data[pid] = {
-                            PacketKey.READY: client.get(PacketKey.READY),
-                            PacketKey.HOST: client.get(PacketKey.HOST),
-                            PacketKey.X: client.get(PacketKey.X),
-                            PacketKey.Y: client.get(PacketKey.Y),
-                            PacketKey.FACING: client.get(PacketKey.FACING)
-                        }
-                    
-                    weapons_data = {}
-                    for weapon in self.weapons.values():
-                        pid = str(weapon[PacketKey.ID])
-                        weapons_data[pid] = {
-                            PacketKey.X: weapon.get(PacketKey.X),
-                            PacketKey.Y: weapon.get(PacketKey.Y),
-                            PacketKey.WEAPON_TYPE: weapon.get(PacketKey.WEAPON_TYPE)
-                        }       
 
-                    packet = {
-                        PacketKey.REQUEST: RequestType.INFO,
-                        PacketKey.TICK: self.current_tick,
-                        PacketKey.STATE: self.state,
-                        PacketKey.LEVEL_NAME: self.current_level_name,
-                        PacketKey.PLAYERS: players_data,
-                        PacketKey.WEAPONS: weapons_data,
-                    }
+                    packet = self.prepare_packet()
                     
                     for addr in self.clients:
                         send_data(self.server_socket, addr, packet)
@@ -487,6 +459,46 @@ class Server:
     def handle_shoot(self, player: dict):
         """ Стрельба """
         ...
+    
+    def prepare_packet(self) -> dict:
+        players_data = {}
+        for client in self.clients.values():
+            pid = str(client[PacketKey.ID])
+            players_data[pid] = {
+                PacketKey.READY: client.get(PacketKey.READY),
+                PacketKey.HOST: client.get(PacketKey.HOST),
+                PacketKey.X: client.get(PacketKey.X),
+                PacketKey.Y: client.get(PacketKey.Y),
+                PacketKey.FACING: client.get(PacketKey.FACING)
+            }
+        
+        weapons_data = {}
+        for weapon in self.weapons.values():
+            wid = str(weapon[PacketKey.ID])
+            weapons_data[wid] = {
+                PacketKey.X: weapon.get(PacketKey.X),
+                PacketKey.Y: weapon.get(PacketKey.Y),
+                PacketKey.WEAPON_TYPE: weapon.get(PacketKey.WEAPON_TYPE)
+            }
+        
+        bullet_data = dict()
+        for bullet in self.bullets.values():
+            bid = str(bullet[PacketKey.ID])
+            bullet_data[bid] = {
+                PacketKey.X: bullet.get(PacketKey.X),
+                PacketKey.Y: bullet.get(PacketKey.Y),
+            }
+
+        packet = {
+            PacketKey.REQUEST: RequestType.INFO,
+            PacketKey.TICK: self.current_tick,
+            PacketKey.STATE: self.state,
+            PacketKey.LEVEL_NAME: self.current_level_name,
+            PacketKey.PLAYERS: players_data,
+            PacketKey.WEAPONS: weapons_data,
+            PacketKey.BULLETS: bullet_data,
+        }
+        return packet
 
 if __name__ == "__main__":
     server = Server()
