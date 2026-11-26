@@ -190,7 +190,8 @@ class Client:
     
     def set_player_action(self, action: dict):
         """ Действия игрока """
-        self.action = action.copy()
+        with self.lock:
+            self.action = action.copy()
 
 
 if __name__ == '__main__':

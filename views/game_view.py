@@ -107,7 +107,6 @@ class GameView(arcade.View):
         
     def update_weapons(self):
         weapon_data = self.client.get_weapons_info()
-        print(weapon_data)
         
         for pid, weapon in weapon_data.items():
             if pid not in self.all_weapons:

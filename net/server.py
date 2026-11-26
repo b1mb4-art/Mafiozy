@@ -196,7 +196,8 @@ class Server:
                 PacketKey.SPRITE: sprite,
                 PacketKey.ENGINE: engine,
                 PacketKey.FACING: 1,
-                PacketKey.WEAPON_ID: 0,
+                PacketKey.WEAPON_ID: None,
+                PacketKey.LAST_PICKUP_SEQ: 0,
                 PacketKey.LAST_SEEN: time.time()  # Последний раз видели
             }
             # Ответ клиенту
@@ -271,6 +272,7 @@ class Server:
         )
         sprite.width = PLAYER_WIDTH
         sprite.height = PLAYER_HEIGHT
+        sprite.sync_hit_box_to_texture
         
         return sprite
 
@@ -302,6 +304,7 @@ class Server:
         )
         sprite.width = width
         sprite.height = height
+        sprite.sync_hit_box_to_texture()
         
         engine = arcade.PhysicsEnginePlatformer(
             sprite,
@@ -315,8 +318,10 @@ class Server:
             PacketKey.Y: y,
             PacketKey.IS_AUTO: is_auto,
             PacketKey.WEAPON_TYPE: weapon_type,
+            PacketKey.OWNER_ID: None,
             PacketKey.SPRITE: sprite,
-            PacketKey.ENGINE: engine
+            PacketKey.ENGINE: engine,
+            PacketKey.FACING: 1
         }
         
         self.weapons[self.next_weapon_id] = weapon
@@ -336,28 +341,54 @@ class Server:
             return
         
         for player in self.clients.values():
-            player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
-            engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
-            
-            self.move_player(player)
-            self.on_jump(player)
-
-            old_x = player_sprite.center_x
-            engine.update()
-            if old_x == player_sprite.center_x:
-                player_sprite.change_x = 0
-            
-            # Новый координаты
-            player[PacketKey.X] = player_sprite.center_x
-            player[PacketKey.Y] = player_sprite.center_y
+            self.update_player(player)
+            self.handle_pickup_weapon(player)
         
         for weapon in self.weapons.values():
-            weapon_sprite: arcade.Sprite = weapon.get(PacketKey.SPRITE)
-            engine: arcade.PhysicsEnginePlatformer = weapon.get(PacketKey.ENGINE)
-            
-            engine.update()
-            weapon[PacketKey.X] = weapon_sprite.center_x
-            weapon[PacketKey.Y] = weapon_sprite.center_y
+            self.update_weapon(weapon)
+
+    def update_weapon(self, weapon: dict):
+        """ Обновление положение оружия """
+        weapon_sprite: arcade.Sprite = weapon.get(PacketKey.SPRITE)
+        player_id = weapon.get(PacketKey.OWNER_ID)
+        
+        if player_id is not None:
+            c = 0
+            for player in self.clients.values():
+                if player_id == player.get(PacketKey.ID):
+                    weapon[PacketKey.FACING] = player.get(PacketKey.FACING)
+                    weapon_sprite.center_x = player.get(PacketKey.SPRITE).center_x + 10 * weapon.get(PacketKey.FACING)
+                    weapon_sprite.center_y = player.get(PacketKey.SPRITE).center_y
+                    c += 1
+                    break
+            if c == 0:
+                weapon[PacketKey.OWNER_ID] = None
+        else:
+            # Оружие лежит или летит по земле — работает физика и трение
+                weapon_sprite.change_x *= 0.85
+                if abs(weapon_sprite.change_x) < 0.2:
+                    weapon_sprite.change_x = 0
+                weapon.get(PacketKey.ENGINE).update()
+        
+        weapon[PacketKey.X] = weapon_sprite.center_x
+        weapon[PacketKey.Y] = weapon_sprite.center_y
+    
+    def update_player(self, player: dict):
+        """ Обновление положениея игрока и его действий """
+        player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
+        engine: arcade.PhysicsEnginePlatformer = player.get(PacketKey.ENGINE)
+        
+        self.move_player(player)
+        self.on_jump(player)
+
+        old_x = player_sprite.center_x
+        engine.update()
+        if old_x == player_sprite.center_x:
+            player_sprite.change_x = 0
+        
+        # Новый координаты
+        player[PacketKey.X] = player_sprite.center_x
+        player[PacketKey.Y] = player_sprite.center_y
         
     def move_player(self, player: dict):
         action = player.get(PacketKey.ACTION)
@@ -425,6 +456,36 @@ class Server:
             engine.walls = self.collide_sprites
             c += 1     
 
+    def handle_pickup_weapon(self, player: dict):
+        """ Подбор оружия игроком """
+        action: dict = player.get(PacketKey.ACTION, {})
+        seq = action.get(ActionKey.PICKUP_SEQ, 0)
+        
+        if seq <= player.get(PacketKey.LAST_PICKUP_SEQ, 0):
+            return
+
+        player[PacketKey.LAST_PICKUP_SEQ] = seq
+        
+        current_weapon_id = player.get(PacketKey.WEAPON_ID)
+        
+        if current_weapon_id is not None and current_weapon_id in self.weapons:
+            weapon = self.weapons[current_weapon_id]
+            weapon[PacketKey.OWNER_ID] = None
+            weapon[PacketKey.SPRITE].change_x = (10 + 5 * abs(player[PacketKey.SPRITE].change_x)) * player[PacketKey.FACING]
+            weapon[PacketKey.SPRITE].change_y = 6
+            player[PacketKey.WEAPON_ID] = None
+            return
+
+        for weapon_id, weapon in self.weapons.items():
+            if weapon[PacketKey.OWNER_ID] is None:
+                if arcade.check_for_collision(weapon.get(PacketKey.SPRITE), player.get(PacketKey.SPRITE)):
+                    player[PacketKey.WEAPON_ID] = weapon_id
+                    weapon[PacketKey.OWNER_ID] = player.get(PacketKey.ID)
+                    break
+
+    def on_shoot(self, player_info: dict, weapon_info: dict):
+        """ Стрельба """
+        ...
 
 if __name__ == "__main__":
     server = Server()

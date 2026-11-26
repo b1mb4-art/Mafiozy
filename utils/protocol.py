@@ -23,24 +23,32 @@ class PacketKey(StrEnum):
     """ Константы для ключей """
     REQUEST = 'request'
     ID = 'id'
-    ACTION = 'action'
-    PLAYERS = 'players'
     TICK = 'tick'
     LAST_SEEN = 'last_seen'
     MESSAGE = 'message'
     HOST = "host"
     READY = 'ready'
-    STATE = 'state'
+    ACTION = 'action'
+    PLAYERS = 'players'
     X = 'x'
     Y = 'y'
     SPRITE = 'sprite'
     ENGINE = "engine"
     FACING = "facing"
+    LAST_PICKUP_SEQ = "last_pickup_seq"
+
+    STATE = 'state'
     LEVEL_NAME = "level_name"
+
     WEAPONS = 'weapons'
     WEAPON_ID = 'weapon_id'
     WEAPON_TYPE = 'weapon_type'
     IS_AUTO = 'is_auto'
+    BULLETS = 'bullets'
+    HP = 'hp'
+    AMMO = 'ammo'
+    OWNER_ID = 'owner_id'
+    COOLDOWN = 'cooldown'
     
 
 class SpriteType(StrEnum):
@@ -57,7 +65,7 @@ class WeaponType(StrEnum):
 class ActionKey(StrEnum):
     LEFT = "left"
     RIGHT = 'right'
-    UP = 'UP'
+    UP = 'up'
     DOWN = 'down'
     SHOT = 'shot'
     SHOOT = 'shoot'

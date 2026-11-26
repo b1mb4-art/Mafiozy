@@ -20,6 +20,7 @@ class Level:
     def setup_level(self):
         """ Прогружает карту """
         self.collide_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
+        self.drawing_sprites = arcade.SpriteList(use_spatial_hash=True, lazy=True)
         self.other_sprites = {
             SpriteType.WEAPON_STAND: arcade.SpriteList(use_spatial_hash=True, lazy=True),
             SpriteType.SPAWN: arcade.SpriteList(use_spatial_hash=True, lazy=True)
