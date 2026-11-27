@@ -353,9 +353,14 @@ class Server:
                 weapon_sprite.change_x *= 0.85
                 if abs(weapon_sprite.change_x) < 0.2:
                     weapon_sprite.change_x = 0
+                old_x = weapon_sprite.center_x
+                old_y = weapon_sprite.center_y
                 weapon.get(PacketKey.ENGINE).update()
+                if old_x == weapon_sprite.center_x:
+                    weapon_sprite.change_x = 0
+                if old_y == weapon_sprite.center_y:
+                    weapon_sprite.change_y = 0
                 if weapon[PacketKey.AMMO] == 0 and weapon_sprite.change_x == 0 and weapon_sprite.change_y == 0:
-                    # Удалить оружие, но без вызова ошибки
                     self.delet_weapons.append(weapon[PacketKey.ID])
         
         weapon[PacketKey.COOLDOWN] -= self.tickrate_duration
@@ -370,7 +375,35 @@ class Server:
 
     def update_bullet(self, bullet: dict):
         """ Обновление положения пули """
+        bullet_sprite: arcade.Sprite = bullet.get(PacketKey.SPRITE)
+        player_id = bullet.get(PacketKey.OWNER_ID)
         
+        if bullet.get(PacketKey.BULLET_LIFE_TIME, 0) <= 0:
+            self.delet_bullets.append(bullet[PacketKey.ID])
+        else:
+            bullet[PacketKey.BULLET_LIFE_TIME] -= self.tickrate_duration
+        
+        bullet_sprite.change_x = BULLET_SPEED * bullet.get(PacketKey.FACING, -1)
+        old_x = bullet_sprite.center_x
+        bullet[PacketKey.ENGINE].update()
+        if old_x == bullet_sprite.center_x:
+            if bullet[PacketKey.ID] not in self.delet_bullets:
+                self.delet_bullets.append(bullet[PacketKey.ID])
+        
+        for client in self.clients.values():
+            player_sprite: arcade.Sprite = client.get(PacketKey.SPRITE)
+            
+            # Небольшая заглушка, потом все игроки должны умирать от любой пули
+            if client.get(PacketKey.ID) == bullet.get(PacketKey.OWNER_ID):
+                continue
+            
+            if arcade.check_for_collision(bullet_sprite, player_sprite):
+                # Убить игрока
+                ...
+                break
+        
+        bullet[PacketKey.X] = bullet_sprite.center_x
+        bullet[PacketKey.Y] = bullet_sprite.center_y
 
     def create_bullet(self, x: float, y: float, direction: int, player_id: int):
         sprite = arcade.Sprite(center_x=x, center_y=y)
@@ -385,7 +418,7 @@ class Server:
         engine = arcade.PhysicsEnginePlatformer(
             sprite,
             walls=self.collide_sprites,
-            gravity_constant=PLAYER_ACCELERATION_Y
+            gravity_constant=0
         )
         
         bullet = {
