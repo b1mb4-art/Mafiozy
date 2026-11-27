@@ -25,6 +25,7 @@ class Client:
         self.all_players = dict()
         
         self.all_weapons = dict()
+        self.all_bullets = dict()
         
         # AF_INET — IPv4, SOCK_DGRAM — UDP
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -52,6 +53,7 @@ class Client:
                         self.last_tick = tick
                         raw_players = data.get(PacketKey.PLAYERS, {})
                         raw_weapon = data.get(PacketKey.WEAPONS, {})
+                        raw_bullets = data.get(PacketKey.BULLETS, {})
                         with self.lock:
                             self.match_state = data.get(PacketKey.STATE, self.match_state)
                             
@@ -64,7 +66,10 @@ class Client:
                             }
                             
                             self.all_weapons = {
-                                int(pid): info for pid, info in raw_weapon.items()
+                                int(wid): info for wid, info in raw_weapon.items()
+                            }
+                            self.all_bullets = {
+                                int(bid): info for bid, info in raw_bullets.items()
                             }
                 
             except (json.JSONDecodeError, UnicodeDecodeError):
@@ -188,6 +193,10 @@ class Client:
         with self.lock:
             return self.all_weapons.copy()
     
+    def get_bullets_info(self):
+        with self.lock:
+            return self.all_bullets.copy()
+
     def set_player_action(self, action: dict):
         """ Действия игрока """
         with self.lock:

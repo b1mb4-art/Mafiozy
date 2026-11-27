@@ -383,12 +383,19 @@ class Server:
                 if abs(weapon_sprite.change_x) < 0.2:
                     weapon_sprite.change_x = 0
                 weapon.get(PacketKey.ENGINE).update()
+                if weapon[PacketKey.AMMO] == 0:
+                    # Удалить оружие, но без вызова ошибки
+                    ...
         
         weapon[PacketKey.COOLDOWN] -= self.tickrate_duration
         if weapon[PacketKey.COOLDOWN] <= 0:
             weapon[PacketKey.COOLDOWN] = 0
         weapon[PacketKey.X] = weapon_sprite.center_x
         weapon[PacketKey.Y] = weapon_sprite.center_y
+    
+    def remove_weapon(self, weapon: dict):
+        if weapon[PacketKey.ID] in self.weapons:
+            self.weapons.pop(weapon[PacketKey.ID])
 
     def update_bullet(self, bullet: dict):
         """ Обновление положения пули """
@@ -531,7 +538,7 @@ class Server:
                 player.get(PacketKey.FACING),
                 player[PacketKey.ID]
             )
-            weapon[PacketKey.COOLDOWN] = 0.5
+            weapon[PacketKey.COOLDOWN] = 0.1
             weapon[PacketKey.AMMO] -= 1
     
     def prepare_packet(self) -> dict:
