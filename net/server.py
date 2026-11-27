@@ -171,6 +171,7 @@ class Server:
                 PacketKey.FACING: 1,
                 PacketKey.WEAPON_ID: None,
                 PacketKey.LAST_PICKUP_SEQ: 0,
+                PacketKey.LAST_SHOT: 0,
                 PacketKey.LAST_SEEN: time.time()  # Последний раз видели
             }
             # Ответ клиенту
@@ -266,7 +267,7 @@ class Server:
         else:
             x, y = center_x, center_y
 
-        is_auto, width, height = self.setup_weapon_param(weapon_type)
+        is_auto, width, height, ammo = self.setup_weapon_param(weapon_type)
 
         self.next_weapon_id += 1
         sprite = arcade.Sprite(center_x=x, center_y=y)
@@ -292,8 +293,10 @@ class Server:
             PacketKey.IS_AUTO: is_auto,
             PacketKey.WEAPON_TYPE: weapon_type,
             PacketKey.OWNER_ID: None,
+            PacketKey.AMMO: ammo,
             PacketKey.SPRITE: sprite,
             PacketKey.ENGINE: engine,
+            PacketKey.COOLDOWN: 0,
             PacketKey.FACING: 1
         }
         
@@ -306,10 +309,11 @@ class Server:
         if weapon_type == WeaponType.PISTOL:
             is_auto = False
             width, height = PISTOL_SIZE
+            ammo = PISTOL_AMMO
         
-        return (is_auto, width, height)
+        return (is_auto, width, height, ammo)
 
-    def create_bullet(self, x, y, player_id):
+    def create_bullet(self, x: float, y: float, direction: int, player_id: int):
         sprite = arcade.Sprite(center_x=x, center_y=y)
         sprite.texture = arcade.make_soft_square_texture(
             size=10,
@@ -319,16 +323,28 @@ class Server:
         sprite.width, sprite.height = BULLET_SIZE
         sprite.sync_hit_box_to_texture()
         
+        engine = arcade.PhysicsEnginePlatformer(
+            sprite,
+            walls=self.collide_sprites,
+            gravity_constant=PLAYER_ACCELERATION_Y
+        )
+        
         bullet = {
             PacketKey.ID: self.next_bullet_id,
             PacketKey.X: x,
             PacketKey.Y: y,
             PacketKey.OWNER_ID: player_id,
             PacketKey.SPRITE: sprite,
+            PacketKey.FACING: direction,
+            PacketKey.ENGINE: engine,
             PacketKey.BULLET_LIFE_TIME: BULLET_LIFETIME
         }
         self.bullets[bullet[PacketKey.ID]] = bullet
         self.next_bullet_id += 1
+    
+    def remove_bullet(self, bullet):
+        if bullet[PacketKey.ID] in self.bullets:
+            self.bullets.pop(bullet[PacketKey.ID])
 
     def on_update(self, delta_time):
         if self.state != MatchState.PLAYING:
@@ -368,6 +384,9 @@ class Server:
                     weapon_sprite.change_x = 0
                 weapon.get(PacketKey.ENGINE).update()
         
+        weapon[PacketKey.COOLDOWN] -= self.tickrate_duration
+        if weapon[PacketKey.COOLDOWN] <= 0:
+            weapon[PacketKey.COOLDOWN] = 0
         weapon[PacketKey.X] = weapon_sprite.center_x
         weapon[PacketKey.Y] = weapon_sprite.center_y
 
@@ -486,7 +505,34 @@ class Server:
 
     def handle_shoot(self, player: dict):
         """ Стрельба """
-        ...
+        if player.get(PacketKey.WEAPON_ID) is None:
+            return
+        
+        action: dict = player.get(PacketKey.ACTION, {})
+        seq = action.get(ActionKey.SHOT, 0)
+        weapon = self.weapons[player.get(PacketKey.WEAPON_ID)]
+        
+        if seq <= player.get(PacketKey.LAST_SHOT, 0) and not weapon[PacketKey.IS_AUTO]:
+            return
+        elif not action.get(ActionKey.SHOOT) and weapon[PacketKey.IS_AUTO]:
+            return
+        
+        player[PacketKey.LAST_SHOT] = seq
+        
+        if weapon.get(PacketKey.AMMO) <= 0:
+            # Нет патронов
+            ...
+            return
+        
+        if weapon[PacketKey.COOLDOWN] == 0:
+            self.create_bullet(
+                weapon[PacketKey.SPRITE].center_x,
+                weapon[PacketKey.SPRITE].center_y,
+                player.get(PacketKey.FACING),
+                player[PacketKey.ID]
+            )
+            weapon[PacketKey.COOLDOWN] = 0.5
+            weapon[PacketKey.AMMO] -= 1
     
     def prepare_packet(self) -> dict:
         players_data = {}

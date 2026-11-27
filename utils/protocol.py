@@ -36,6 +36,7 @@ class PacketKey(StrEnum):
     ENGINE = "engine"
     FACING = "facing"
     LAST_PICKUP_SEQ = "last_pickup_seq"
+    LAST_SHOT = 'last_shot'
 
     STATE = 'state'
     LEVEL_NAME = "level_name"

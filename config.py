@@ -29,6 +29,7 @@ PLAYER_DIRECTION = {
 
 # Оружие
 PISTOL_SIZE = (16, 8)
+PISTOL_AMMO = 8
 
 # Пуля
 BULLET_SPEED = 35
