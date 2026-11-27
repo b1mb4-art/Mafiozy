@@ -2,7 +2,7 @@ import arcade
 
 from net import Client
 from utils import PacketKey, MatchState, ActionKey, WeaponType
-from scripts import Player, Level, Pistol, Bullet
+from scripts import Player, Level, Pistol, Bullet, Weapon
 
 from config import *
 
@@ -23,9 +23,11 @@ class GameView(arcade.View):
         self.weapon_id = 0
         self.weapon_sprites = arcade.SpriteList()
         self.all_weapons = {}
+        self.delet_weapons = list()
         
         self.bullet_sprites = arcade.SpriteList()
         self.all_bullets = {}
+        self.delet_bullets = list()
     
     def on_draw(self):
         """ Цикл отрисовки """
@@ -48,6 +50,9 @@ class GameView(arcade.View):
         self.move_players()
         self.update_weapons()
         self.update_bullets()
+        
+        self.remove_bullet()
+        self.remove_weapon()
         
         self.client.set_player_action(self.action)
         
@@ -119,7 +124,7 @@ class GameView(arcade.View):
         
         for wid, weapon in self.all_weapons.items():
             if wid not in weapon_data:
-                self.remove_weapon(self.all_weapons[wid])
+                self.delet_weapons.append(self.all_weapons[wid])
             else:
                 weapon.center_x, weapon.center_y = weapon_data[wid].get(PacketKey.X), weapon_data[wid].get(PacketKey.Y)
 
@@ -132,9 +137,11 @@ class GameView(arcade.View):
         self.all_weapons[id] = sprite
         self.weapon_sprites.append(sprite)
     
-    def remove_weapon(self, sprite: Pistol):
-        self.all_weapons.pop(sprite.weapon_id)
-        sprite.remove_from_sprite_lists()
+    def remove_weapon(self):
+        for sprite in self.delet_weapons:
+            self.all_weapons.pop(sprite.weapon_id)
+            sprite.remove_from_sprite_lists()
+        self.delet_weapons.clear()
 
     def update_bullets(self):
         bullet_data = self.client.get_bullets_info()
@@ -149,7 +156,7 @@ class GameView(arcade.View):
         
         for bid, bullet in self.all_bullets.items():
             if bid not in bullet_data:
-                self.remove_bullet(bullet)
+                self.delet_bullets.append(bullet)
             else:
                 bullet.center_x = bullet_data[bid].get(PacketKey.X, 0)
                 bullet.center_y = bullet_data[bid].get(PacketKey.Y, 0)
@@ -159,9 +166,11 @@ class GameView(arcade.View):
         self.all_bullets[id] = sprite
         self.bullet_sprites.append(sprite)
     
-    def remove_bullet(self, sprite: Bullet):
-        self.all_bullets.pop(sprite.bullet_id)
-        sprite.remove_from_sprite_lists()
+    def remove_bullet(self):
+        for sprite in self.delet_bullets:
+            self.all_bullets.pop(sprite.bullet_id)
+            sprite.remove_from_sprite_lists()
+        self.delet_bullets.clear()
 
     def load_level(self):
         self.level.set_level_name(self.current_level_name)

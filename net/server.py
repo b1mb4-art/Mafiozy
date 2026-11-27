@@ -34,8 +34,10 @@ class Server:
         
         self.next_weapon_id = 0
         self.weapons = {}
+        self.delet_weapons: list[int] = list()
         self.next_bullet_id = 0
         self.bullets = {}
+        self.delet_bullets: list[int] = list()
 
         # AF_INET — IPv4, SOCK_DGRAM — UDP
         self.lock = threading.Lock()
@@ -313,6 +315,63 @@ class Server:
         
         return (is_auto, width, height, ammo)
 
+    def on_update(self, delta_time):
+        if self.state != MatchState.PLAYING:
+            return
+        
+        for player in self.clients.values():
+            self.update_player(player)
+            self.handle_pickup_weapon(player)
+            self.handle_shoot(player)
+        
+        for weapon in self.weapons.values():
+            self.update_weapon(weapon)
+        
+        for bullet in self.bullets.values():
+            self.update_bullet(bullet)
+        
+        self.remove_objects()
+
+    def update_weapon(self, weapon: dict):
+        """ Обновление положение оружия """
+        weapon_sprite: arcade.Sprite = weapon.get(PacketKey.SPRITE)
+        player_id = weapon.get(PacketKey.OWNER_ID)
+        
+        if player_id is not None:
+            c = 0
+            for player in self.clients.values():
+                if player_id == player.get(PacketKey.ID):
+                    weapon[PacketKey.FACING] = player.get(PacketKey.FACING)
+                    weapon_sprite.center_x = player.get(PacketKey.SPRITE).center_x + 10 * weapon.get(PacketKey.FACING)
+                    weapon_sprite.center_y = player.get(PacketKey.SPRITE).center_y
+                    c += 1
+                    break
+            if c == 0:
+                weapon[PacketKey.OWNER_ID] = None
+        else:
+            # Оружие лежит или летит по земле — работает физика и трение
+                weapon_sprite.change_x *= 0.85
+                if abs(weapon_sprite.change_x) < 0.2:
+                    weapon_sprite.change_x = 0
+                weapon.get(PacketKey.ENGINE).update()
+                if weapon[PacketKey.AMMO] == 0 and weapon_sprite.change_x == 0 and weapon_sprite.change_y == 0:
+                    # Удалить оружие, но без вызова ошибки
+                    self.delet_weapons.append(weapon[PacketKey.ID])
+        
+        weapon[PacketKey.COOLDOWN] -= self.tickrate_duration
+        if weapon[PacketKey.COOLDOWN] <= 0:
+            weapon[PacketKey.COOLDOWN] = 0
+        weapon[PacketKey.X] = weapon_sprite.center_x
+        weapon[PacketKey.Y] = weapon_sprite.center_y
+    
+    def remove_weapon(self, weapon: dict):
+        if weapon[PacketKey.ID] in self.weapons:
+            self.weapons.pop(weapon[PacketKey.ID])
+
+    def update_bullet(self, bullet: dict):
+        """ Обновление положения пули """
+        
+
     def create_bullet(self, x: float, y: float, direction: int, player_id: int):
         sprite = arcade.Sprite(center_x=x, center_y=y)
         sprite.texture = arcade.make_soft_square_texture(
@@ -345,61 +404,7 @@ class Server:
     def remove_bullet(self, bullet):
         if bullet[PacketKey.ID] in self.bullets:
             self.bullets.pop(bullet[PacketKey.ID])
-
-    def on_update(self, delta_time):
-        if self.state != MatchState.PLAYING:
-            return
         
-        for player in self.clients.values():
-            self.update_player(player)
-            self.handle_pickup_weapon(player)
-            self.handle_shoot(player)
-        
-        for weapon in self.weapons.values():
-            self.update_weapon(weapon)
-        
-        for bullet in self.bullets.values():
-            self.update_bullet(bullet)
-
-    def update_weapon(self, weapon: dict):
-        """ Обновление положение оружия """
-        weapon_sprite: arcade.Sprite = weapon.get(PacketKey.SPRITE)
-        player_id = weapon.get(PacketKey.OWNER_ID)
-        
-        if player_id is not None:
-            c = 0
-            for player in self.clients.values():
-                if player_id == player.get(PacketKey.ID):
-                    weapon[PacketKey.FACING] = player.get(PacketKey.FACING)
-                    weapon_sprite.center_x = player.get(PacketKey.SPRITE).center_x + 10 * weapon.get(PacketKey.FACING)
-                    weapon_sprite.center_y = player.get(PacketKey.SPRITE).center_y
-                    c += 1
-                    break
-            if c == 0:
-                weapon[PacketKey.OWNER_ID] = None
-        else:
-            # Оружие лежит или летит по земле — работает физика и трение
-                weapon_sprite.change_x *= 0.85
-                if abs(weapon_sprite.change_x) < 0.2:
-                    weapon_sprite.change_x = 0
-                weapon.get(PacketKey.ENGINE).update()
-                if weapon[PacketKey.AMMO] == 0:
-                    # Удалить оружие, но без вызова ошибки
-                    ...
-        
-        weapon[PacketKey.COOLDOWN] -= self.tickrate_duration
-        if weapon[PacketKey.COOLDOWN] <= 0:
-            weapon[PacketKey.COOLDOWN] = 0
-        weapon[PacketKey.X] = weapon_sprite.center_x
-        weapon[PacketKey.Y] = weapon_sprite.center_y
-    
-    def remove_weapon(self, weapon: dict):
-        if weapon[PacketKey.ID] in self.weapons:
-            self.weapons.pop(weapon[PacketKey.ID])
-
-    def update_bullet(self, bullet: dict):
-        """ Обновление положения пули """
-
     def update_player(self, player: dict):
         """ Обновление положениея игрока и его действий """
         player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
@@ -448,6 +453,21 @@ class Server:
                 else:
                     player_sprite.change_x += PLAYER_ACCELERATION_X
 
+    def players_on_spawns(self):
+        c = 0
+        for client in self.clients.values():
+            sprite: arcade.Sprite = client.get(PacketKey.SPRITE)
+            engine: arcade.PhysicsEnginePlatformer = client.get(PacketKey.ENGINE)
+            spawn: arcade.Sprite = self.spawn_sprites[c]
+            
+            self.create_new_weapon(center_x=spawn.center_x, center_y=spawn.center_y, weapon_type=WeaponType.PISTOL)
+
+            sprite.center_x = spawn.center_x
+            sprite.center_y = spawn.center_y
+
+            engine.walls = self.collide_sprites
+            c += 1     
+
     def on_jump(self, player: dict):
         action = player.get(PacketKey.ACTION)
         player_sprite: arcade.Sprite = player.get(PacketKey.SPRITE)
@@ -467,21 +487,6 @@ class Server:
         self.spawn_sprites = self.level.get_spawn_sprites()
         self.weapon_stand_sprites = self.level.get_weapon_stand_sprites()
         self.players_on_spawns()
-    
-    def players_on_spawns(self):
-        c = 0
-        for client in self.clients.values():
-            sprite: arcade.Sprite = client.get(PacketKey.SPRITE)
-            engine: arcade.PhysicsEnginePlatformer = client.get(PacketKey.ENGINE)
-            spawn: arcade.Sprite = self.spawn_sprites[c]
-            
-            self.create_new_weapon(center_x=spawn.center_x, center_y=spawn.center_y, weapon_type=WeaponType.PISTOL)
-
-            sprite.center_x = spawn.center_x
-            sprite.center_y = spawn.center_y
-
-            engine.walls = self.collide_sprites
-            c += 1     
 
     def handle_pickup_weapon(self, player: dict):
         """ Подбор оружия игроком """
@@ -580,6 +585,15 @@ class Server:
             PacketKey.BULLETS: bullet_data,
         }
         return packet
+
+    def remove_objects(self):
+        for obj_id in self.delet_weapons:
+            self.remove_weapon(self.weapons[obj_id])
+        for obj_id in self.delet_bullets:
+            self.remove_bullet(self.bullets[obj_id])
+        
+        self.delet_bullets.clear()
+        self.delet_weapons.clear()
 
 if __name__ == "__main__":
     server = Server()
